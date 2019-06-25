@@ -1,0 +1,10 @@
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\RDEManager.exe.config
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\RDEManager.exe
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\RDEManager.pdb
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.csprojAssemblyReference.cache
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.Properties.Resources.resources
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.csproj.GenerateResource.cache
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.csproj.CoreCompileInputs.cache
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.exe
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.pdb
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.Main.resources
