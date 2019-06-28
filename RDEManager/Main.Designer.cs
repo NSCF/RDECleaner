@@ -45,6 +45,10 @@
             this.btnChooseTaxonBackbone = new System.Windows.Forms.Button();
             this.label4 = new System.Windows.Forms.Label();
             this.lblNoTaxa = new System.Windows.Forms.Label();
+            this.btnTest = new System.Windows.Forms.Button();
+            this.txtQDSCountriesFile = new System.Windows.Forms.TextBox();
+            this.btnChooseQDSCountries = new System.Windows.Forms.Button();
+            this.lblChooseQDSCountries = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // txtChooseDBF
@@ -192,11 +196,52 @@
             this.lblNoTaxa.TabIndex = 25;
             this.lblNoTaxa.Text = "No. of species records: ";
             // 
+            // btnTest
+            // 
+            this.btnTest.Location = new System.Drawing.Point(17, 588);
+            this.btnTest.Name = "btnTest";
+            this.btnTest.Size = new System.Drawing.Size(204, 26);
+            this.btnTest.TabIndex = 26;
+            this.btnTest.Text = "Test something!";
+            this.btnTest.UseVisualStyleBackColor = true;
+            // 
+            // txtQDSCountriesFile
+            // 
+            this.txtQDSCountriesFile.Location = new System.Drawing.Point(17, 558);
+            this.txtQDSCountriesFile.Name = "txtQDSCountriesFile";
+            this.txtQDSCountriesFile.Size = new System.Drawing.Size(734, 20);
+            this.txtQDSCountriesFile.TabIndex = 29;
+            // 
+            // btnChooseQDSCountries
+            // 
+            this.btnChooseQDSCountries.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnChooseQDSCountries.BackgroundImage")));
+            this.btnChooseQDSCountries.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.btnChooseQDSCountries.Location = new System.Drawing.Point(281, 525);
+            this.btnChooseQDSCountries.Name = "btnChooseQDSCountries";
+            this.btnChooseQDSCountries.Size = new System.Drawing.Size(43, 30);
+            this.btnChooseQDSCountries.TabIndex = 28;
+            this.btnChooseQDSCountries.UseVisualStyleBackColor = true;
+            this.btnChooseQDSCountries.Click += new System.EventHandler(this.btnChooseQDSCountries_Click);
+            // 
+            // lblChooseQDSCountries
+            // 
+            this.lblChooseQDSCountries.AutoSize = true;
+            this.lblChooseQDSCountries.Font = new System.Drawing.Font("Microsoft Sans Serif", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblChooseQDSCountries.Location = new System.Drawing.Point(12, 530);
+            this.lblChooseQDSCountries.Name = "lblChooseQDSCountries";
+            this.lblChooseQDSCountries.Size = new System.Drawing.Size(248, 25);
+            this.lblChooseQDSCountries.TabIndex = 27;
+            this.lblChooseQDSCountries.Text = "Choose QDS countries list:";
+            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 626);
+            this.Controls.Add(this.txtQDSCountriesFile);
+            this.Controls.Add(this.btnChooseQDSCountries);
+            this.Controls.Add(this.lblChooseQDSCountries);
+            this.Controls.Add(this.btnTest);
             this.Controls.Add(this.lblNoTaxa);
             this.Controls.Add(this.txtTaxonBackbone);
             this.Controls.Add(this.btnChooseTaxonBackbone);
@@ -237,6 +282,10 @@
         private System.Windows.Forms.Button btnChooseTaxonBackbone;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label lblNoTaxa;
+        private System.Windows.Forms.Button btnTest;
+        private System.Windows.Forms.TextBox txtQDSCountriesFile;
+        private System.Windows.Forms.Button btnChooseQDSCountries;
+        private System.Windows.Forms.Label lblChooseQDSCountries;
     }
 }
 
