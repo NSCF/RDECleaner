@@ -17,7 +17,13 @@ namespace RDEManager
         public Main()
         {
             InitializeComponent();
-            
+
+            this.viewRecordsBinding = new BindingSource();
+
+            this.dgvRecordsView.DataSource = this.viewRecordsBinding;
+
+            this.dupsSearched = false;
+
         }
 
         //UI FUNCTIONS
@@ -62,7 +68,9 @@ namespace RDEManager
                 addDBFRecords(fileNames[i]);
             }
 
-            btnCheckRDEFile.Enabled = true;
+            this.viewRecordsBinding.DataSource = this.records;
+
+            btnCheckDuplicates.Enabled = true;
 
         }
 
@@ -110,7 +118,6 @@ namespace RDEManager
                     MessageBox.Show("Taxon file successfully read");
                     txtTaxonBackbone.Text = taxonFile;
                     lblNoTaxa.Text += $" {this.taxa.Rows.Count}";
-                    return;
 
                 }
             }
@@ -151,10 +158,359 @@ namespace RDEManager
             }
         }
 
-        private void btnCheckRecords_Click(object sender, EventArgs e)
+        private void btnChoosePeople_Click(object sender, EventArgs e)
         {
+            this.people = new DataTable();
+
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+
+                openFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
+                openFileDialog.FilterIndex = 1;
+
+                if (openFileDialog.ShowDialog() == DialogResult.OK && openFileDialog.FileName != null)
+                {
+
+                    string peopleFile = Path.GetFileName(openFileDialog.FileName);
+                    string peopleDirectory = Path.GetDirectoryName(openFileDialog.FileName);
+
+                    try
+                    {
+                        readDBFTable(peopleDirectory, peopleFile, this.taxa);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error reading people table: " + ex.Message);
+                        return;
+                    }
+
+                    MessageBox.Show("People table successfully imported");
+                    txtPeopleTable.Text = peopleFile;
+
+                }
+            }
+        }
+
+        private void btnFindMissingRecords_Click(object sender, EventArgs e)
+        {
+            if (txtImageFolder.Text != null && txtImageFolder.Text != "")
+            {
+                string fullPath = "";
+                try
+                {
+                    fullPath = Path.GetFullPath(txtImageFolder.Text);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Images folder is not valid. Please select a valid images folder");
+                    return;
+                }
+
+                if (Directory.Exists(fullPath))
+                {
+                    rtbReportErrors.Clear();
+
+                    //get all the file paths and convert to fileNames
+                    this.imagePaths = new List<string>();
+                    this.imagePaths = Directory.GetFiles(fullPath, "*", SearchOption.AllDirectories).ToList();
+                    List<string> fileNames = new List<string>();
+                    for (int i = 0; i < this.imagePaths.Count; i++)
+                    {
+                        fileNames.Add(Path.GetFileName(this.imagePaths[i]));
+                    }
+
+                    //get all the image file names
+                    List<string> imageFiles = fileNames.Where(fileName => {
+                        string ext = fileName.Substring(fileName.LastIndexOf('.') + 1);
+                        return ext == "jpg" || ext == "tif";
+                    }).ToList();
+
+                    List<string>[] errors = RecordErrorFinder.checkAllImagesCaptured(this.records, imageFiles);
+
+                    List<string> notCaptured = errors[0];
+                    List<string> noImages = errors[1];
+
+                    if (notCaptured.Count > 0)
+                    {
+                        notCaptured.Sort();
+                        string codesNotCaptured = String.Join("; ", notCaptured.ToArray());
+                        
+                        rtbReportErrors.Text += $"{notCaptured.Count} image files that do not match captured barcodes. See the log.{Environment.NewLine}";
+                        rtbReportErrors.Text += codesNotCaptured + Environment.NewLine + Environment.NewLine;
+                        string logNotCapturedMsg = $"Image file names without matching barcode values in RDE files ({notCaptured.Count}): {codesNotCaptured}";
+                        this.errorLogs.Add(logNotCapturedMsg);
+                    }
+
+                    if (noImages.Count > 0)
+                    {
+
+                        noImages.Sort();
+                        string codesNoImages = String.Join("; ", noImages.ToArray());
+
+                        rtbReportErrors.Text += $"{noImages.Count} captured barcodes that do not match image files. See the log.";
+                        rtbReportErrors.Text += codesNoImages + Environment.NewLine + Environment.NewLine;
+                        string noImagesMsg = $"No corresponding images for the following RDE barcodes ({noImages.Count}): {codesNoImages}";
+                        this.errorLogs.Add(noImagesMsg);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Images folder does not exist. Please select a valid images folder");
+                    return;
+                }
+            }
+            else
+            {
+                MessageBox.Show("No images folder selected. Captured records will not be checked against the images used.");
+                this.errorLogs.Insert(0, "IMAGES NOT CHECKED!!!!");
+            }
+        }
+
+        private void btnCheckDuplicates_Click(object sender, EventArgs e)
+        {
+            RecordCleaner.removeBarcodeExclamations(this.records);
+
+            int duplicatesRemoved = RecordCleaner.removeDuplicates(this.records);
+
+            if (!this.dupsSearched)
+            {
+                this.findBotRecDuplicates();
+            }
+
+            MessageBox.Show($"{duplicatesRemoved} duplicate records removed");
+
+            this.btnNextDuplicate.Enabled = true;
+
+            this.btnCheckDuplicates.Enabled = false;
 
         }
+
+        private void btnGetDuplicates_Click(object sender, EventArgs e)
+        {
+            if (!this.dupsSearched)
+            {
+                this.findBotRecDuplicates();
+            }
+        }
+
+        private void btnFindNextDuplicate_Click(object sender, EventArgs e)
+        {
+
+            if (this.botRecDuplicatesIndex < this.botRecDuplicates.Count)
+            {
+                BotanicalRecordDuplicateTracker next = this.botRecDuplicates[this.botRecDuplicatesIndex];
+
+                //make the search string
+                string INSearch = "";
+                foreach (string dupBarcode in next.dupBarcodes)
+                {
+                    string quoted = $"'{dupBarcode}'";
+                    INSearch += quoted + ", ";
+                }
+                INSearch = INSearch.Substring(0, INSearch.Length - 2);
+
+                string expression = $"barcode IN ({INSearch})";
+
+                this.viewRecordsBinding.Filter = expression;
+
+                this.botRecDuplicatesIndex++;
+
+                this.lblDupIndexCount.Text = $"{this.botRecDuplicatesIndex} of {this.botRecDuplicates.Count} duplicates";
+            }
+            else
+            {
+                MessageBox.Show("All duplicates have been processed.");
+                this.viewRecordsBinding.Filter = null;
+                this.btnCheckDuplicates.Enabled = false;
+                this.lblDupIndexCount.Text = "";
+            }
+        }
+
+        private void btnTestSomething_Click(object sender, EventArgs e)
+        {
+            this.viewRecordsBinding.DataSource = this.records;
+        }
+
+        private void dgvRecordsView_SelectionChanged(object sender, EventArgs e)
+        {
+
+            if (this.viewRecordsBinding.DataSource != null && this.dgvRecordsView.SelectedRows.Count > 0)
+            {
+                this.rtbReportErrors.Text = this.dgvRecordsView.SelectedRows[0].Cells["locnotes"].Value.ToString();
+            }
+
+        }
+
+        private void btnMergeDups_Click(object sender, EventArgs e)
+        {
+            if (this.dgvRecordsView.SelectedRows.Count != 1)
+            {
+                MessageBox.Show("One row must be selected as the master record to merge into...");
+                return;
+            }
+            else
+            {
+                string masterBarcode = this.dgvRecordsView.SelectedRows[0].Cells["barcode"].Value.ToString().Trim();
+
+                //we incremented the index of the duplicates tracker, so we need to go one back
+                BotanicalRecordDuplicateTracker dupInfo = this.botRecDuplicates[this.botRecDuplicatesIndex - 1];
+
+                //if they're the same then we can't merge
+                if (dupInfo.dupBarcodes.Distinct().Count() < dupInfo.dupBarcodes.Count) //if any are not equal to the first
+                {
+                    MessageBox.Show("One row must be selected as the master record to merge into...");
+                    return;
+                }
+                else
+                {
+                    //process each one
+                    string masterRDEspec = this.dgvRecordsView.SelectedRows[0].Cells["rdespec"].Value.ToString().Trim();
+                    if (!String.IsNullOrEmpty(masterRDEspec))
+                    {
+                        XMLSpecimenList rdespeclist = RecordCleaner.rdeSpecToList(masterRDEspec);
+                        
+                        //go through each duplicate record, check if it's already in the rdespec, if not, add it
+                        foreach(string dupBarcode in dupInfo.dupBarcodes)
+                        {
+                            
+                            int count = rdespeclist.Specimens.Where(s => s.barcode == dupBarcode).Count();
+                            if (count == 0) //add it
+                            {
+                                XMLSpecimen spec = new XMLSpecimen();
+                                spec.barcode = dupBarcode;
+                                spec.ih = "Herbarium sheet";
+
+                                //get the various parts
+                                string numberString = Regex.Match(dupBarcode, @"\d+").Value;
+                                int numberIndex = dupBarcode.IndexOf(numberString);
+                                string prefix = dupBarcode.Substring(0, numberIndex);
+
+                                spec.ccid = prefix;
+                                spec.accession = numberString;
+
+                            }
+                        }
+
+                        //write it back again
+                        this.dgvRecordsView.SelectedRows[0].Cells["rdespec"].Value = rdespeclist.ToXMLString();
+                    }
+                    else
+                    {
+                        XMLSpecimenList rdespeclist = new XMLSpecimenList();
+                        foreach (string dupBarcode in dupInfo.dupBarcodes)
+                        {
+
+                            XMLSpecimen spec = new XMLSpecimen();
+                            spec.barcode = dupBarcode;
+                            spec.ih = "Herbarium sheet";
+
+                            //get the various parts
+                            string numberString = Regex.Match(dupBarcode, @"\d+").Value;
+                            int numberIndex = dupBarcode.IndexOf(numberString);
+                            string prefix = dupBarcode.Substring(0, numberIndex);
+
+                            spec.ccid = prefix;
+                            spec.accession = numberString;
+                        }
+
+                        //write it back again
+                        this.dgvRecordsView.SelectedRows[0].Cells["rdespec"].Value = rdespeclist.ToXMLString();
+                    }
+                }
+            }
+        }
+
+        private void btnDeleteRows_Click(object sender, EventArgs e)
+        {
+            if (this.dgvRecordsView.SelectedRows.Count > 1) //many selected records
+            {
+                if (MessageBox.Show($"Are you sure you want to delete {this.dgvRecordsView.SelectedRows.Count} records?", 
+                    "Confirm delete", MessageBoxButtons.YesNo) == System.Windows.Forms.DialogResult.Yes)
+                {
+                    foreach (DataGridViewRow item in this.dgvRecordsView.SelectedRows)
+                    {
+                        this.dgvRecordsView.Rows.RemoveAt(item.Index);
+                        this.records.AcceptChanges();
+                    }
+                }
+
+            }
+            else //only one record
+            {
+                foreach (DataGridViewRow item in this.dgvRecordsView.SelectedRows)
+                {
+                    this.dgvRecordsView.Rows.RemoveAt(item.Index);
+                    this.records.AcceptChanges();
+                }
+            }
+
+        }
+
+        private void btnCleanRecords_Click(object sender, EventArgs e)
+        {
+            int collNumUpdates = 0;
+            if (rbNumberFromBarcode.Checked)
+            {
+                collNumUpdates = RecordCleaner.addCollNumberFromBarcode(this.records);
+            }
+            else if (rbNumberToSN.Checked)
+            {
+                collNumUpdates = RecordCleaner.changeEmptyCollectorNumbersToSN(this.records);
+            }
+
+            if (collNumUpdates > 0)
+            {
+                rtbReportErrors.Text += $"Collector number updated for {collNumUpdates} records{Environment.NewLine}";
+            }
+
+            int dupsUpdated = RecordCleaner.updateDups(this.records);
+
+            if (dupsUpdated > 0)
+            {
+                rtbReportErrors.Text += $"Dups updated for {dupsUpdated} records{Environment.NewLine}";
+            }
+
+            RecordCleaner.updateWHO(this.records);
+
+            RecordCleaner.addAccessionNumbers(this.records);
+
+            RecordCleaner.clearZeroCoordinates(this.records);
+
+            MessageBox.Show("Record cleaning complete");
+
+
+        }
+
+        private void btnAddQDSFromCoords_Click(object sender, EventArgs e)
+        {
+            rtbReportErrors.Clear();
+            int qdsUpdates = RecordCleaner.addQDSFromCoordinates(this.records);
+            if(qdsUpdates > 0)
+            {
+                rtbReportErrors.Text += $"QDS updated for {qdsUpdates} records";
+            }
+
+            btnCheckQDSCountry.Enabled = true;
+            btnAddQDSFromCoords.Enabled = false;
+
+        }
+
+        private void btnCheckQDSCountry_Click(object sender, EventArgs e)
+        {
+            //TODO this is a row level check again
+        }
+
+        //handle delete button presses for datagrid rows
+        private void dgvRecordsView_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyValue == (char)Keys.Delete)
+            {
+                e.Handled = true;
+                MessageBox.Show("Use the buttons to delete records...");
+            }
+        }
+
+        
 
         //HELPER FUNCTIONS
 
@@ -182,6 +538,9 @@ namespace RDEManager
                 {
                     OleDbCommand cmd = new OleDbCommand(selectSQL, connection);
                     OleDbDataAdapter DA = new OleDbDataAdapter(cmd);
+
+
+
                     try
                     {
                         DA.Fill(target);
@@ -236,223 +595,51 @@ namespace RDEManager
             return capturerData;
         }
 
-        private string getQDSFromCoords(double decimalLat, double decimalLong) //note this works for southern Africa only
+        private void findBotRecDuplicates()
         {
-            int latWholePart = (int)Math.Truncate(decimalLat);
-            int longWholePart = (int)Math.Truncate(decimalLong);
 
-            string QDS = $"{latWholePart}{longWholePart}";
+            this.botRecDuplicates = new List<BotanicalRecordDuplicateTracker>();
+            this.botRecDuplicatesIndex = 0;
 
-            double latDecPart = decimalLat - latWholePart;
-            double longDecPart = decimalLong - longWholePart;
+            char[] seps = { '-', '–', '—' };
 
-            //working out these letters. Let's do this in rows and columns...
-            if (latDecPart < 0.25)
-            {
-                if (longDecPart < 0.25)
-                {
-                    QDS += "AA";
-                }
-                else if (longDecPart < 0.5)
-                {
-                    QDS += "AB";
-                }
-                else if (longDecPart < 0.75)
-                {
-                    QDS += "BA";
-                }
-                else //0.75 - 0.99
-                {
-                    QDS += "BB";
-                }
-
-            }
-            else if (latDecPart < 0.5)
-            {
-                if (longDecPart < 0.25)
-                {
-                    QDS += "AC";
-                }
-                else if (longDecPart < 0.5)
-                {
-                    QDS += "AD";
-                }
-                else if (longDecPart < 0.75)
-                {
-                    QDS += "BC";
-                }
-                else //0.75 - 0.99
-                {
-                    QDS += "BD";
-                }
-            }
-            else if (latDecPart < 0.75)
-            {
-                if (longDecPart < 0.25)
-                {
-                    QDS += "CA";
-                }
-                else if (longDecPart < 0.5)
-                {
-                    QDS += "CB";
-                }
-                else if (longDecPart < 0.75)
-                {
-                    QDS += "DA";
-                }
-                else //0.75 - 0.99
-                {
-                    QDS += "DB";
-                }
-            }
-            else // 0.75 - .099
-            {
-                if (longDecPart < 0.25)
-                {
-                    QDS += "CC";
-                }
-                else if (longDecPart < 0.5)
-                {
-                    QDS += "CD";
-                }
-                else if (longDecPart < 0.75)
-                {
-                    QDS += "DC";
-                }
-                else //0.75 - 0.99
-                {
-                    QDS += "DD";
-                }
-            }
-
-            return QDS;
-        }
-
-        //DATA CLEANING/UPDATING FUNCTIONS
-
-        //remove exclamations from barcode numbers - these are added if the barcode is found on the actual live database
-        //these will be checked again by the person uploading the records into the source database
-        private void removeBarcodeExclamations()
-        {
-            DataColumn col = this.records.Columns["barcode"];
-            foreach (DataRow row in this.records.Rows)
-            {
-                string barcodeVal = row[col].ToString();
-                if (barcodeVal.Contains("!"))
-                {
-                    row[col] = barcodeVal.Replace("!", "");
-                }
-            }
-        }
-
-        //Delete identical duplicates
-        private void removeDuplicates()
-        {
-            
-            int countBefore = this.records.Rows.Count;
-            this.records = this.records.DefaultView.ToTable(true);
-            int countAfter = this.records.Rows.Count;
-
-            if (countBefore > countAfter)
-            {
-                errorsBinding.Add($"There were {countBefore - countAfter} identical duplicate records. These have been removed.");
-            }
-        }
-
-        //dups must be empty
-        private void emptyDups()
-        {
-            if (this.columnNames.Contains("dups"))
-            {
-
-                List<DataRow> dupsNotNull = this.records.Select("dups is not null and trim(dups) <> ''").ToList();
-
-                if (dupsNotNull.Count > 0)
-                {
-                    string dupsmsg = $"{dupsNotNull.Count} records have a value for dups. These have been cleared.";
-                    errorsBinding.Add(dupsmsg);
-                    dupsNotNull.ForEach(row =>
-                    {
-                        row["dups"] = DBNull.Value;
-                    });
-                }
-            }
-        }
-
-        //update [who] to include NSCF
-        private void updateWHO()
-        {
-            for (int i = 0; i < this.records.Rows.Count; i++)
-            {
-                DataRow row = this.records.Rows[i];
-                if (!row["who"].ToString().Contains("NSCF")) {
-                    row["who"] = row["who"].ToString().Trim() + " (NSCF)";
-                }
-            }
-        }
-
-        //update accession numbers
-        private void addAccessionNumbers()
-        {
             foreach (DataRow row in this.records.Rows)
             {
                 string barcode = row["barcode"].ToString().Trim();
-                if (barcode.Length > 0)
-                {
-                    //strip off the -# at the end
-                    char[] separators = { '-', '–', '—' };
-                    barcode = barcode.Split(separators)[0];
+                string root = barcode.Split(seps)[0];
 
-                    //get the number part
-                    string numberString = Regex.Match(barcode, @"\d+").Value;
-                    if (numberString.Length > 0)
-                    {
-                        row["accession"] = numberString;
-                    }
+                //sometimes there is no barcode
+                if (String.IsNullOrEmpty(root))
+                {
+                    continue;
                 }
 
-            }
-        }
+                // check if we've already processed this root
+                int cnt = this.botRecDuplicates.Where(x => x.root == root).Count();
 
-        //TODO coordinates that are zero must be emptied. Remember llunit and llres also
-        private void clearZeroCoordinates()
-        {
-            List<string> coordErrors = new List<string>();
-            int coordsCounter = 0;
-
-            foreach (DataRow row in this.records.Rows)
-            {
-                string latStr = row["lat"].ToString().Trim();
-                string lngStr = row["long"].ToString().Trim();
-                string unit = row["llunit"].ToString().Trim();
-
-                //Do we have anything?
-                if (latStr.Length > 0 && lngStr.Length > 0)
+                if (cnt == 0)
                 {
-                    coordsCounter++;
+                    DataRow[] dups = this.records.Select($"barcode like '{root}*'");
 
-                    //first check that they parse and they're not just zeros
-                    try
+                    if (dups.Count() > 1)
                     {
-                        double parsedLat = double.Parse(latStr);
-                        double parsedLong = double.Parse(lngStr);
+                        List<string> dupBarcodes = new List<string>();
 
-                        if (parsedLat < 0.0000001 && parsedLong < 0.0000001) //&& because we can have 00.0000, 12.25475, for example. 
+                        foreach (DataRow dr in dups)
                         {
-                            row["lat"] = "";
-                            row["long"] = "";
-                            row["llunit"] = "";
-                            row["llres"] = "";
+                            dupBarcodes.Add(dr["barcode"].ToString().Trim());
                         }
 
-                    }
-                    catch
-                    {
-                        MessageBox.Show($"There was an error with parsing coordinates for {row["barcode"].ToString().Trim()}. Please clean the coordinates and then continue");
-                        return;
+                        this.botRecDuplicates.Add(new BotanicalRecordDuplicateTracker(root, dupBarcodes));
+
+                        this.lblDupsCount.Text = "No. Dups: " + this.botRecDuplicates.Count;
+
                     }
                 }
+
             }
+
+            this.dupsSearched = true;
         }
 
         //ERROR CHECKING FUNCTIONS
@@ -462,7 +649,7 @@ namespace RDEManager
             //preparation
             this.RDEUIErrors = new List<string>();
             this.errorsBinding = new BindingList<string>(RDEUIErrors);
-            this.lbRDEErrors.DataSource = errorsBinding;
+            //this.lbRDEErrors.DataSource = errorsBinding;
 
             this.errorLogs = new List<string>();
 
@@ -484,6 +671,20 @@ namespace RDEManager
             countryCodes.Add("Lesotho", "LES");
             countryCodes.Add("Botswana", "BOT");
             countryCodes.Add("Angola", "ANG");
+
+            //checking countries
+            HashSet<string> extCountriesOrErrors = new HashSet<string>();
+            List<string> barcodesToCheck = new List<string>();
+            if (extCountriesOrErrors.Count > 0)
+            {
+
+                String[] stringArray = new String[extCountriesOrErrors.Count];
+                extCountriesOrErrors.CopyTo(stringArray);
+                this.errorsBinding.Add($"Check these country names found in {barcodesToCheck.Count} records: {String.Join("; ", stringArray)}");
+                this.errorLogs.Add($"The following {barcodesToCheck.Count} have country names that need to be checked: " +
+                    $"{String.Join("; ", barcodesToCheck.ToArray())}.{Environment.NewLine}" +
+                    $"Country names: {String.Join("; ", stringArray)}");
+            }
 
             //the heavy lifting...
             this.checkLocalityData();
@@ -507,34 +708,7 @@ namespace RDEManager
             }
         }
 
-        //check countries are in our list for Southern Africa and list those that are not
-        private void checkCountries()
-        {
-            HashSet<string> extCountriesOrErrors = new HashSet<string>();
-            List<string> barcodesToCheck = new List<string>();
-
-            foreach (DataRow row in this.records.Rows)
-            {
-                string country = row["country"].ToString().Trim();
-
-                if (!this.countryCodes.ContainsKey(country))
-                {
-                    extCountriesOrErrors.Add(country);
-                    barcodesToCheck.Add(row["barcode"].ToString().Trim());
-                }
-            }
-            if (extCountriesOrErrors.Count > 0)
-            {
-
-                String[] stringArray = new String[extCountriesOrErrors.Count];
-                extCountriesOrErrors.CopyTo(stringArray);
-                this.errorsBinding.Add($"Check these country names found in {barcodesToCheck.Count} records: {String.Join("; ", stringArray)}");
-                this.errorLogs.Add($"The following {barcodesToCheck.Count} have country names that need to be checked: " +
-                    $"{String.Join("; ", barcodesToCheck.ToArray())}.{Environment.NewLine}" +
-                    $"Country names: {String.Join("; ", stringArray)}");
-            }
-            
-        }
+        
 
         //the major, minor and locality fields are empty
         private void checkLocalityData()
@@ -613,94 +787,8 @@ namespace RDEManager
         //check all images have been captured
         private void checkAllImagesCaptured()
         {
-            if (txtImageFolder.Text != null && txtImageFolder.Text != "")
-            {
-                string fullPath = "";
-                try
-                {
-                    fullPath = Path.GetFullPath(txtImageFolder.Text);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Images folder is not valid. All images captured not confirmed. Error: " + ex.Message);
-                }
+            
 
-                if (fullPath != "" && Directory.Exists(fullPath))
-                {
-                    //get all the file paths and convert to fileNames
-                    this.imagePaths = new List<string>();
-                    this.imagePaths = Directory.GetFiles(fullPath, "*", SearchOption.AllDirectories).ToList();
-                    List<string> fileNames = new List<string>();
-                    for (int i = 0; i < this.imagePaths.Count; i++)
-                    {
-                        fileNames.Add(Path.GetFileName(this.imagePaths[i]));
-                    }
-
-                    //get all the image file names
-                    List<string> imageFiles = fileNames.Where(fileName => {
-                        string ext = fileName.Substring(fileName.LastIndexOf('.') + 1);
-                        return ext == "jpg" || ext == "tif";
-                    }).ToList();
-
-                    //get the barcode values from the image file names
-                    List<string> barcodesFromFileNames = imageFiles.Select(fileName => {
-                        return fileName.Substring(0, fileName.LastIndexOf('.')).Trim();
-                    }).ToList();
-
-                    barcodesFromFileNames = barcodesFromFileNames.Select(s => s.ToUpper()).Distinct().ToList(); //there may be cases where the same specimen has more than one image (eg. jpg and tif)
-
-                    //get the captured barcodes
-                    List<string> notCaptured = new List<string>();
-                    List<string> capturedBarcodes = this.records.AsEnumerable().Select(x => x["barcode"].ToString().ToUpper().Trim()).ToList();
-                    notCaptured = barcodesFromFileNames.Where(bf => !capturedBarcodes.Contains(bf)).ToList();
-
-                    //get those in the list where we don't have images
-                    List<string> noImages = capturedBarcodes.Where(bc => !barcodesFromFileNames.Contains(bc)).ToList();
-
-                    if (notCaptured.Count > 0)
-                    {
-                        notCaptured.Sort();
-                        errorsBinding.Add($"{notCaptured.Count} image files that do not match captured barcodes. See the log.");
-                        string logNotCapturedMsg = $"Image file names without matching barcode values in RDE files ({notCaptured.Count}): {String.Join("; ", notCaptured.ToArray())}";
-                        this.errorLogs.Add(logNotCapturedMsg);
-                    }
-
-                    if (noImages.Count > 0)
-                    {
-                        noImages.Sort();
-                        errorsBinding.Add($"{noImages.Count} captured barcodes that do not match image files. See the log.");
-                        string noImagesMsg = $"No corresponding images for the following RDE barcodes ({noImages.Count}): {String.Join("; ", noImages.ToArray())}";
-                        this.errorLogs.Add(noImagesMsg);
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("Images folder does no exist");
-                }
-            }
-            else
-            {
-                MessageBox.Show("No images folder selected. Captured records will not be checked against the images used.");
-                this.errorLogs.Insert(0, "IMAGES NOT CHECKED!!!!");
-            }
-
-            //update the imagelist field to include the image paths
-            int imagePathsUpdated = 0;
-            foreach (DataRow row in this.records.Rows)
-            {
-                string bc = row["barcode"].ToString().Trim();
-                List<string> paths = this.imagePaths.Where(s => s.Contains(bc)).ToList();
-                if (paths.Count > 0)
-                {
-                    row["imagelist"] = String.Join(Environment.NewLine, paths);
-                    imagePathsUpdated++;
-                }
-            }
-
-            if (imagePathsUpdated > 0)
-            {
-                errorsBinding.Add($"'imagelist' field updated for {imagePathsUpdated} records");
-            }
         }
 
         //check captured names against the taxon backbone
@@ -708,111 +796,7 @@ namespace RDEManager
         {
             if (txtTaxonBackbone.Text != null && txtTaxonBackbone.Text != "" && this.taxa.Rows.Count > 0)
             {
-                List<DataRow> recordsEnum = this.records.AsEnumerable().ToList();
-
-                //check that for every rank the required higher rank is present
-                List<string> noFamily = recordsEnum.Where(row => String.IsNullOrEmpty(row["family"].ToString()) && !String.IsNullOrEmpty(row["genus"].ToString())).Select(row => row["barcode"].ToString().Trim()).ToList();
-                List<string> noGenus = recordsEnum.Where(row => String.IsNullOrEmpty(row["genus"].ToString()) && !String.IsNullOrEmpty(row["sp1"].ToString())).Select(row => row["barcode"].ToString().Trim()).ToList();
-                List<string> noSpecies = recordsEnum.Where(row => String.IsNullOrEmpty(row["sp1"].ToString()) && !String.IsNullOrEmpty(row["sp2"].ToString())).Select(row => row["barcode"].ToString().Trim()).ToList();
-                List<string> noSubspecies = recordsEnum.Where(row => String.IsNullOrEmpty(row["sp2"].ToString()) && !String.IsNullOrEmpty(row["sp3"].ToString())).Select(row => row["barcode"].ToString().Trim()).ToList();
-
-                if (noFamily.Count > 0 || noGenus.Count > 0 || noSpecies.Count > 0 || noSubspecies.Count > 0)
-                {
-                    errorsBinding.Add($"There are records missing higher taxa. See the log.");
-                }
-
-                if (noFamily.Count > 0)
-                {
-                    this.errorLogs.Add($"Family names are missing for: {String.Join("; ", noFamily.ToArray())}");
-                }
-
-                if (noGenus.Count > 0)
-                {
-                    this.errorLogs.Add($"Generus names are missing for: {String.Join("; ", noGenus.ToArray())}");
-                }
-
-                if (noSpecies.Count > 0)
-                {
-                    this.errorLogs.Add($"Species names are missing for: {String.Join("; ", noSpecies.ToArray())}");
-                }
-
-                if (noSubspecies.Count > 0)
-                {
-                    this.errorLogs.Add($"Subspecies names are missing for: {String.Join("; ", noSubspecies.ToArray())}");
-                }
-
-                // prepare the captured taxa for checking against the backbone
-                var capturedTaxonNames = recordsEnum.Select(rec => new {
-                    family = rec["family"].ToString().Trim(),
-                    genus = rec["genus"].ToString().Trim(),
-                    species = rec["sp1"].ToString().Trim(),
-                    subspecies = rec["sp2"].ToString().Trim(),
-                    var = rec["sp3"].ToString().Trim()
-                }).Distinct().ToList();
-
-                var capturedFamilies = capturedTaxonNames.Where(rec => !String.IsNullOrEmpty(rec.family)).Select(rec => rec.family).Distinct().ToList();
-                var capturedGenera = capturedTaxonNames.Where(rec => !String.IsNullOrEmpty(rec.genus)).Select(rec => rec.genus).Distinct().ToList();
-                var capturedSpecies = capturedTaxonNames.Where(rec => !String.IsNullOrEmpty(rec.species) && String.IsNullOrEmpty(rec.subspecies)).Select(rec => new { rec.genus, rec.species }).Distinct().ToList();
-                var capturedSubspecies = capturedTaxonNames.Where(rec => !String.IsNullOrEmpty(rec.subspecies) && String.IsNullOrEmpty(rec.var)).Select(rec => new { rec.genus, rec.species, rec.subspecies }).Distinct().ToList();
-                var capturedVars = capturedTaxonNames.Where(rec => !String.IsNullOrEmpty(rec.var)).Select(rec => new { rec.genus, rec.species, rec.subspecies, rec.var }).Distinct().ToList();
-
-                var checkTaxonNames = this.taxa.AsEnumerable()
-                    .Where(rec => capturedFamilies.Contains(rec["family"].ToString().Trim()))
-                    .Select(rec => new {
-                        family = rec["family"].ToString().Trim(),
-                        genus = rec["genus"].ToString().Trim(),
-                        species = rec["sp1"].ToString().Trim(),
-                        subspecies = rec["sp2"].ToString().Trim(),
-                        var = rec["sp3"].ToString().Trim()
-                    }).Distinct().ToList();
-
-                List<string> backboneFamilies = checkTaxonNames.Select(rec => rec.family).Distinct().ToList();
-                List<string> backboneGenera = checkTaxonNames.Where(rec => capturedFamilies.Contains(rec.family)).Select(rec => rec.genus).Distinct().ToList();
-                var backboneSpecies = checkTaxonNames.Where(rec => capturedGenera.Contains(rec.genus) && String.IsNullOrEmpty(rec.subspecies)).Select(rec => new { rec.genus, rec.species }).Distinct().ToList();
-                var backboneSubspecies = checkTaxonNames.Where(rec => capturedGenera.Contains(rec.genus) && !String.IsNullOrEmpty(rec.subspecies) && String.IsNullOrEmpty(rec.var)).Select(rec => new { rec.genus, rec.species, rec.subspecies }).Distinct().ToList();
-                var backboneVars = checkTaxonNames.Where(rec => capturedGenera.Contains(rec.genus) && !String.IsNullOrEmpty(rec.subspecies) && !String.IsNullOrEmpty(rec.var)).Select(rec => new { rec.genus, rec.species, rec.subspecies, rec.var }).Distinct().ToList();
-
-                List<string> invalidFamilies = capturedFamilies.Where(fam => !backboneFamilies.Contains(fam)).ToList();
-                List<string> invalidGenera = capturedGenera.Where(gen => !backboneGenera.Contains(gen)).ToList();
-                var invalidSpecies = capturedSpecies.Where(sp => !backboneSpecies.Contains(sp)).ToList();
-                var invalidSubspecies = capturedSubspecies.Where(ssp => !backboneSubspecies.Contains(ssp)).ToList();
-                var invalidVars = capturedVars.Where(var => !backboneVars.Contains(var)).ToList();
-
-                if (invalidFamilies.Count > 0 || invalidGenera.Count > 0 || invalidSpecies.Count > 0 || invalidSubspecies.Count > 0 || invalidVars.Count > 0)
-                {
-                    errorsBinding.Add($"There are taxa that don't match the backbone. See the log.");
-                }
-
-                if (invalidFamilies.Count > 0)
-                {
-                    this.errorLogs.Add($"The following invalid family names were found: {String.Join("; ", invalidFamilies.ToArray())}");
-                }
-
-                if (invalidGenera.Count > 0)
-                {
-                    this.errorLogs.Add($"The following invalid genus names were found: {String.Join("; ", invalidGenera.ToArray())}");
-                }
-
-                if (invalidSpecies.Count > 0)
-                {
-                    List<string> fullSpeciesNames = new List<string>();
-                    invalidSpecies.ForEach(sp => fullSpeciesNames.Add($"{sp.genus} {sp.species}"));
-                    this.errorLogs.Add($"The following invalid species names were found: {String.Join("; ", fullSpeciesNames.ToArray())}");
-                }
-
-                if (invalidSubspecies.Count > 0)
-                {
-                    List<string> fullSubspeciesNames = new List<string>();
-                    invalidSubspecies.ForEach(sp => fullSubspeciesNames.Add($"{sp.genus} {sp.species} {sp.subspecies}"));
-                    this.errorLogs.Add($"The following invalid subspecies names were found: {String.Join("; ", fullSubspeciesNames.ToArray())}");
-                }
-
-                if (invalidVars.Count > 0)
-                {
-                    List<string> fullVarNames = new List<string>();
-                    invalidVars.ForEach(var => fullVarNames.Add($"{var.genus} {var.species} {var.subspecies} {var.var}"));
-                    this.errorLogs.Add($"The following invalid variety/form names were found: {String.Join("; ", fullVarNames.ToArray())}");
-                }
+                
 
             }
         }
@@ -951,13 +935,12 @@ namespace RDEManager
         //check coordinates
         //note that this does the QDS check also 
         //Its a horrible dependency but it's there...
+        //To be honest I think adding the QDS needs to be an option for only after coordinates have been cleaned...
         private void checkCoordinatesAndQDSs()
         {
 
             List<string> coordErrors = new List<string>();
             List<string> QDSCoordsMisMatchErrors = new List<string>();
-
-            int coordsCounter = 0;
 
             foreach (DataRow row in this.records.Rows)
             {
@@ -970,142 +953,8 @@ namespace RDEManager
                 //Do we have anything?
                 if (latStr.Length > 0 && lngStr.Length > 0)
                 {
-                    coordsCounter++;
 
-                    //first check that they parse and they're not just zeros
-                    try
-                    {
-                        double parsedLat = double.Parse(latStr);
-                        double parsedLong = double.Parse(lngStr);
-
-                        if (parsedLat < 0.0000001 && parsedLong < 0.0000001) //&& because we can have 00.0000, 12.25475, for example. 
-                        {
-                            //we don't clear them here, that is cleaning
-                            continue;
-                        }
-
-                    }
-                    catch
-                    {
-                        coordErrors.Add(barcode);
-                        continue;
-                    }
-
-                    //if we have one, we must have the other
-                    if ((latStr.Length > 0 && lngStr.Length == 0) || (latStr.Length == 0 && lngStr.Length > 0))
-                    {
-                        coordErrors.Add(barcode);
-                        continue;
-
-                    }
-
-                    //look for other kinds of problems
-                    if (unit == "DD")
-                    {
-
-                        double lat = double.Parse(latStr);
-                        double lng = double.Parse(lngStr);
-
-                        if (lat > 90 || lat < -90 || lng > 180 || lng < -180)
-                        {
-                            coordErrors.Add(barcode);
-                            continue; 
-                        }
-
-                        if (qds.Length > 0)
-                        {
-                            if (qds != getQDSFromCoords(lat, lng))
-                            {
-                                QDSCoordsMisMatchErrors.Add(barcode);
-                            }
-                        }
-
-                    }
-                    else //DM or DMS
-                    {
-                        //there is always a decimal
-                        char[] separators = { '.' };
-                        string[] latParts = latStr.Split(separators);
-                        string[] lngParts = lngStr.Split(separators);
-
-                        int latDeg = int.Parse(latParts[0]);
-                        int lngDeg = int.Parse(lngParts[0]);
-
-                        if (latDeg > 90 || latDeg < -90 || lngDeg > 180 || lngDeg < -180)
-                        {
-                            coordErrors.Add(barcode);
-                        }
-
-                        //the M or MS part
-                        if (unit == "DM") //its one number
-                        {
-                            //add the decimals
-                            string latMin = latParts[1].Insert(2, ".");
-                            string lngMin = lngParts[1].Insert(2, ".");
-
-                            double latMinNum = double.Parse(latMin);
-                            double lngMinNum = double.Parse(lngMin);
-
-                            if (latMinNum > 60 || lngMinNum > 60)
-                            {
-                                coordErrors.Add(barcode);
-                                continue;
-                            }
-
-                            if (qds.Length > 0)
-                            {
-                                double lat = latDeg + latMinNum / 60;
-                                double lng = lngDeg + lngMinNum / 60;
-
-                                if (qds != getQDSFromCoords(lat, lng))
-                                {
-                                    QDSCoordsMisMatchErrors.Add(barcode);
-                                }
-                            }
-
-                        }
-                        else if (unit == "DMS")
-                        {
-                            string latMin = latParts[1].Substring(0, 2);
-                            string lngMin = lngParts[1].Substring(0, 2);
-                            string latSec = latParts[1].Substring(2).Insert(2, ".");
-                            string lngSec = latParts[1].Substring(2).Insert(2, ".");
-
-                            int latMinNum = int.Parse(latMin);
-                            int lngMinNum = int.Parse(lngMin);
-
-                            double latSecNum = double.Parse(latSec);
-                            double lngSecNum = double.Parse(lngSec);
-
-                            if (latMinNum > 60 || lngMinNum > 60)
-                            {
-                                coordErrors.Add(barcode);
-                                continue;
-                            }
-
-                            if (latSecNum > 60 || lngSecNum > 60)
-                            {
-                                coordErrors.Add(barcode);
-                                continue;
-                            }
-
-                            if (qds.Length > 0)
-                            {
-                                double lat = latDeg + latMinNum / 60 + latSecNum / 3600;
-                                double lng = lngDeg + lngMinNum / 60 + lngSecNum / 3600;
-
-                                if (qds != getQDSFromCoords(lat, lng))
-                                {
-                                    QDSCoordsMisMatchErrors.Add(barcode);
-                                }
-                            }
-
-                        }
-                        else //there is no unit value
-                        {
-                            coordErrors.Add(barcode);
-                        }
-                    }
+                    
 
                 } 
             }
@@ -1128,14 +977,28 @@ namespace RDEManager
         //Check QDSs are valid for country
         private void checkQDSValidForCountry()
         {
-            
+            if (this.QDSCountries.Count > 0)
+            {
+                List<string> QDSErrors = new List<string>();
 
+                //lets build the list of qdss per country so we don't have to do it on every iteration
+                Dictionary<string, List<string>> countryQDSs = new Dictionary<string, List<string>>();
 
+                foreach (KeyValuePair<string, string> code in this.countryCodes)
+                {
+                    string countryCode = code.Value;
+                    List<string> qdss = this.QDSCountries.Where(x => x.CountryCode == countryCode).Select(x => x.QDS.Trim()).ToList();
+                    countryQDSs.Add(countryCode, qdss);
+                }
 
+                if (QDSErrors.Count > 0)
+                {
+                    this.errorsBinding.Add($"There were country / QDS mismatches for {QDSErrors.Count} records.");
+                    this.errorLogs.Add($"There were country / QDS mismatches for the following {QDSErrors.Count} records: {String.Join("; ", QDSErrors.ToArray())}");
+                }
+            }
         }
         
-
-        //TESTING FUNCTIONS
 
 
         //PROPERTIES
@@ -1145,6 +1008,15 @@ namespace RDEManager
         //data
         private DataTable records { get; set; }
         private DataTable taxa { get; set; }
+        private DataTable people { get; set; }
+
+        private List<BotanicalRecordDuplicateTracker> botRecDuplicates { get; set; }
+        private bool dupsSearched { get; set; }
+        private int botRecDuplicatesIndex { get; set; }
+
+        private DataTable viewRecords { get; set; }
+        private BindingSource viewRecordsBinding { get; set; }
+
         private List<QDSCountry> QDSCountries { get; set; }
         private string[] columnNames { get; set; }
         private List<string> imagePaths { get; set; }

@@ -73,7 +73,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Agent.cs" />
+    <Compile Include="BarcodeParts.cs" />
+    <Compile Include="BotanicalRecordDuplicateTracker.cs" />
     <Compile Include="GoogleSheetReader.cs" />
+    <Compile Include="InvalidTaxonNameCount.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -83,7 +87,10 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QDSCountry.cs" />
+    <Compile Include="rdespecxml.cs" />
     <Compile Include="RDETrackingRecord.cs" />
+    <Compile Include="RecordCleaner.cs" />
+    <Compile Include="RecordErrorFinder.cs" />
     <Compile Include="serializer.cs" />
     <EmbeddedResource Include="Main.resx">
       <DependentUpon>Main.cs</DependentUpon>

@@ -27,3 +27,5 @@ C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\Google.Apis.S
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\Google.Apis.Sheets.v4.xml
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\Newtonsoft.Json.xml
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.csproj.CopyComplete
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\FileHelpers.dll
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\FileHelpers.xml
