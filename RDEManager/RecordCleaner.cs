@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using System.Xml;
 using System.Xml.Serialization;
 
@@ -313,7 +314,6 @@ namespace RDEManager
         public static void clearZeroCoordinates(DataTable records)
         {
 
-
             foreach (DataRow row in records.Rows)
             {
                 string latStr = row["lat"].ToString().Trim();
@@ -332,16 +332,16 @@ namespace RDEManager
 
                         if (parsedLat < 0.0000001 && parsedLong < 0.0000001) //&& because we can have 00.0000, 12.25475, for example. 
                         {
-                            row["lat"] = "";
-                            row["long"] = "";
-                            row["llunit"] = "";
-                            row["llres"] = "";
+                            row["lat"] = DBNull.Value;
+                            row["long"] = DBNull.Value;
+                            row["llunit"] = DBNull.Value;
+                            row["llres"] = DBNull.Value;
                         }
 
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        throw;
+                        throw ex;
                     }
                 }
             }
@@ -387,13 +387,11 @@ namespace RDEManager
                 string qds = row["qds"].ToString().Trim();
                 if (String.IsNullOrEmpty(qds))
                 {
-                    string latStr = row["lat"].ToString().Trim();
-                    string lngStr = row["long"].ToString().Trim();
-                    string unit = row["llunit"].ToString().Trim();
+                    
 
                     try
                     {
-                        string coords = RecordErrorFinder.getDecimalCoords(latStr, lngStr, unit);
+                        string coords = RecordErrorFinder.getDecimalCoords(row);
                         row["qds"] = RecordErrorFinder.getQDSFromCoords(coords);
                         updates++;
                     }
@@ -425,7 +423,7 @@ namespace RDEManager
                     serializer.Serialize(writer, XMLList);
                     string xml = sww.ToString(); // Your XML
 
-                    xml = xml.Replace("<SpecimenList>", "").Replace("</SpecimenList>", "");
+                    xml = xml.Replace("<SpecimenList>", "").Replace("</SpecimenList>", "").Replace("&amp;", "&");
 
                     return xml;
 
@@ -438,12 +436,21 @@ namespace RDEManager
             XmlSerializer serializer = new XmlSerializer(typeof(XMLSpecimenList));
 
             //we need to add the list wrapper
-            rdespec = $"<SpecimenList>{rdespec}</SpecimenList>";
+            rdespec = $"<SpecimenList>{rdespec}</SpecimenList>".Replace("&", "&amp;"); //we need the replace because ampersands mean something in XML!!
 
-            using (TextReader reader = new StringReader(rdespec))
+            try
             {
-                return (XMLSpecimenList)serializer.Deserialize(reader);
+                using (TextReader reader = new StringReader(rdespec))
+                {
+                    return (XMLSpecimenList)serializer.Deserialize(reader);
+                }
             }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error with speclist XML");
+                throw ex;
+            }
+
         }
 
         private static string getCollCodeFromBarcode(string barcode)

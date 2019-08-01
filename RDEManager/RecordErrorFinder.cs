@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace RDEManager
@@ -14,6 +15,7 @@ namespace RDEManager
 
         //check all images captured and all records have images
         //returns [imageNotCaptured, recordsWithNoImages]
+        //tested manually
         public static List<string>[] checkAllImagesCaptured(DataTable records, List<string> imageFileNames)
         {
             //get the barcode values from the image file names
@@ -37,6 +39,7 @@ namespace RDEManager
             return res;
         }
 
+        //tested manually
         public static Dictionary<string, List<string>> getTaxonNamesNotInBackbone(DataTable records, DataTable taxonBackbone)
         {
             Dictionary<string, List<string>> taxaNotFound = new Dictionary<string, List<string>>();
@@ -98,10 +101,11 @@ namespace RDEManager
         //ROW LEVEL CHECKS 
 
         //collector number should only be a number or s.n.
+        //NOT TESTED
         public static bool numberIsAnIntegerOrSN(DataRow row)
         {
             string recordNumber = row["number"].ToString().Trim();
-            
+
 
             if (recordNumber.Replace(" ", "").ToLower() != "s.n.")
             {
@@ -125,32 +129,38 @@ namespace RDEManager
         }
 
         //check countries are in our list for Southern Africa
-        public static bool countryInList(DataRow row, Dictionary<string, string> countryCodes)
+        //NOT TESTED
+        public static bool countryInList(DataRow row, CountryCodes countryCodes)
         {
 
             string country = row["country"].ToString().Trim();
-            return countryCodes.ContainsKey(country);
+            return countryCodes.Codes.ContainsValue(country);
 
         }
 
+        //NOT TESTED
         public static bool majorAreaIsEmpty(DataRow row)
         {
             string majorarea = row["majorarea"].ToString().Trim();
             return String.IsNullOrEmpty(majorarea);
         }
 
+        //NOT TESTED
         public static bool minorAreaIsEmpty(DataRow row)
         {
             string minorarea = row["minorarea"].ToString().Trim();
             return String.IsNullOrEmpty(minorarea);
         }
 
+        //NOT TESTED
         public static bool localityIsEmpty(DataRow row)
         {
-            string locality = row["locality"].ToString().Trim();
+            string locality = row["gazetteer"].ToString().Trim();
             return String.IsNullOrEmpty(locality);
         }
 
+        //check whether a higher taxon is present if a child taxon is captured
+        //NOT TESTED
         public static bool higherTaxaAllPresent(DataRow row)
         {
 
@@ -163,7 +173,7 @@ namespace RDEManager
 
             if (genus.Length > 0)
             {
-                if (family.Length == 0)
+                if (String.IsNullOrEmpty(family))
                 {
                     return false;
                 }
@@ -171,7 +181,7 @@ namespace RDEManager
 
             if (species.Length > 0)
             {
-                if (genus.Length == 0)
+                if (String.IsNullOrEmpty(genus))
                 {
                     return false;
                 }
@@ -179,7 +189,7 @@ namespace RDEManager
 
             if (infrataxon1.Length > 0)
             {
-                if (species.Length == 0)
+                if (String.IsNullOrEmpty(species))
                 {
                     return false;
                 }
@@ -187,7 +197,7 @@ namespace RDEManager
 
             if (infrataxon2.Length > 0)
             {
-                if (infrataxon1.Length == 0)
+                if (String.IsNullOrEmpty(infrataxon1))
                 {
                     return false;
                 }
@@ -199,24 +209,29 @@ namespace RDEManager
         }
 
         //get the taxon ranks for this record not in the backbone
-        public static string taxaInBackbone (DataRow row, DataTable taxa)
+        //NOT TESTED
+        public static string getRanksNotInBackbone(DataRow row, DataTable taxa)
         {
             var taxonBackbone = taxa.AsEnumerable();
 
             List<string> ranksNotIn = new List<string>();
 
             var familyIn = taxonBackbone.Where(bbr => bbr["family"].ToString().Trim() == row["family"].ToString().Trim()).FirstOrDefault();
-            if (familyIn != null)
+            if (familyIn == null)
             {
                 ranksNotIn.Add("family");
             }
 
-            var genusIn = taxonBackbone.Where(bbr => bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim()).FirstOrDefault();
-            if (genusIn != null)
+            string genus = row["genus"].ToString().Trim();
+            if (!String.IsNullOrEmpty(genus))
             {
-                ranksNotIn.Add("genus");
+                var genusIn = taxonBackbone.Where(bbr => bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim()).FirstOrDefault();
+                if (genusIn == null)
+                {
+                    ranksNotIn.Add("genus");
+                }
             }
-
+            
             string species = row["sp1"].ToString().Trim();
             if (!String.IsNullOrEmpty(species))
             {
@@ -225,9 +240,9 @@ namespace RDEManager
                     bbr["sp1"].ToString().Trim() == row["sp1"].ToString().Trim()
                 ).FirstOrDefault();
 
-                if (speciesIn != null)
+                if (speciesIn == null)
                 {
-                    ranksNotIn.Add("species");
+                    ranksNotIn.Add("sp1");
                 }
             }
 
@@ -240,9 +255,9 @@ namespace RDEManager
                     bbr["sp2"].ToString().Trim() == row["sp2"].ToString().Trim()
                 ).FirstOrDefault();
 
-                if (subspeciesIn != null)
+                if (subspeciesIn == null)
                 {
-                    ranksNotIn.Add("infraspecific1");
+                    ranksNotIn.Add("sp2");
                 }
             }
 
@@ -253,12 +268,12 @@ namespace RDEManager
                     bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim() &&
                     bbr["sp1"].ToString().Trim() == row["sp1"].ToString().Trim() &&
                     bbr["sp2"].ToString().Trim() == row["sp2"].ToString().Trim() &&
-                    bbr["sp3"].ToString().Trim() == row["sp"].ToString().Trim()
+                    bbr["sp3"].ToString().Trim() == row["sp3"].ToString().Trim()
                 ).FirstOrDefault();
 
-                if (varietyIn != null)
+                if (varietyIn == null)
                 {
-                    ranksNotIn.Add("infraspecific2");
+                    ranksNotIn.Add("sp3");
                 }
             }
 
@@ -267,6 +282,8 @@ namespace RDEManager
         }
 
         //for finding duplicate records using accession number
+        //NOT TESTED
+        //deprecated
         public static int botanicalRecordDuplicates(DataRow row, DataTable records)
         {
             string accnum = row["accession"].ToString().Trim();
@@ -281,92 +298,98 @@ namespace RDEManager
 
         }
 
-        //check QDS is valid for country
-        public static bool QDSValidForCountry(DataRow row, Dictionary<string, string> countryCodes, Dictionary<string, List<string>> countryQDSs)
+        //check QDS is valid for country. Returns true for no QDS or no QDS list for the country
+        //NOT TESTED
+        public static bool QDSValidForCountry(DataRow row, Dictionary<string, List<string>> countryQDSs)
         {
-            string qds = row["qds"].ToString().Trim();
-            string country = row["country"].ToString().Trim();
 
-            if (qds.Length > 0)
+            //countryCodes is a list of countries and their codes
+
+            string qds = row["qds"].ToString().Trim();
+            if (qds.Length > 0 && isQDSValid(row))
             {
-                string countryCode = "";
-                if (countryCodes.TryGetValue(country, out countryCode)) //check this country is in our codes dictionary
+                string country = row["country"].ToString().Trim();
+                if (countryQDSs.Keys.Contains(country))
                 {
-                    if (countryQDSs[countryCode].Contains(qds))
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                } //else
+                    return countryQDSs[country].Contains(qds);
+                }
                 return true; //no test
             } //else
             return true; //no test
         }
 
-        //check coords match QDS
-        public static bool coordsMatchQDS(DataRow row)
+        //check QDS is a valid QDS format, ie four numbers and two letters
+        //TESTED AND WORKING
+        public static bool isQDSValid(DataRow row)
         {
-            string latStr = row["lat"].ToString().Trim();
-            string lngStr = row["long"].ToString().Trim();
-            string unit = row["llunit"].ToString().Trim();
             string qds = row["qds"].ToString().Trim();
-
-            if (latStr.Length > 0 && lngStr.Length > 0 && qds.Length > 0)
+            if (String.IsNullOrEmpty(qds))
             {
-                //first check that they parse and they're not just zeros
-                try
-                {
-                    double parsedLat = double.Parse(latStr);
-                    double parsedLong = double.Parse(lngStr);
+                return true;
+            }
+            else
+            {
 
-                    if (parsedLat < 0.0000001 && parsedLong < 0.0000001) //&& because we can have 00.0000, 12.25475, for example. 
+                Regex qdsRx = new Regex(@"^\d{4}[ABCD]{2}$");
+                if (qdsRx.Match(qds).Success)
+                {
+                    //check that the degree parts are within range
+                    int latpart = int.Parse(qds.Substring(0, 2));
+                    if (latpart < 0  || latpart > 35)
                     {
-                        return true; //no test
+                        return false;
                     }
                     else
                     {
-                        //if we have one, we must have the other
-                        if ((latStr.Length > 0 && lngStr.Length == 0) || (latStr.Length == 0 && lngStr.Length > 0))
+                        int lngpart = int.Parse(qds.Substring(2, 2));
+                        if (lngpart < 11 || lngpart > 41)
                         {
-                            throw new Exception(); //missing coordinates
-
+                            return false;
                         }
-
-                        //See if they convert
-                        try
+                        else
                         {
-                            string decimalCoords = getDecimalCoords(latStr, lngStr, unit); //this might throw
-                            if (qds == getQDSFromCoords(decimalCoords))
-                            {
-                                return true;
-                            }
-                            else
-                            {
-                                return false;
-                            }
-                        }
-                        catch
-                        {
-                            throw;
+                            return true;
                         }
                     }
-
                 }
-                catch
+                else
                 {
-                    throw;
+                    return false;
+                }
+            }
+        }
+
+        //check coords match QDS
+        //TESTED AND WORKS
+        public static bool coordsMatchQDS(DataRow row)
+        {
+            string latStr = row["lat"].ToString().Trim();
+            string ns = row["ns"].ToString().Trim();
+            string lngStr = row["long"].ToString().Trim();
+            string ew = row["ew"].ToString().Trim();
+            string unit = row["llunit"].ToString().Trim();
+            string qds = row["qds"].ToString().Trim();
+
+            if (coordsAreValid(row) && llunitIsValid(unit) && !String.IsNullOrEmpty(qds))
+            {
+                string decimalCoords = getDecimalCoords(row);
+                if (qds == getQDSFromCoords(decimalCoords))
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
                 }
             }
             else
             {
-                return true; //no test
+                return true;
             }
         }
 
         //check all collectors in master table
+        //NOT TESTED, getAgentNamesNotInList() is tested
         public static string getCollectorsNotInList(DataRow row, DataTable masterAgents)
         {
             string collectors = row["collector"].ToString().Trim();
@@ -392,29 +415,270 @@ namespace RDEManager
 
         }
 
-        //HELPERS, BUT SOME USED ELSEWHERE
-        public static string getDecimalCoords(string latStr, string lngStr, string unit) //expects non-empty numeric only strings
+        //THESE DATES ARE A NIGHTMARE!!
+        public static bool collYearIsValid(DataRow row)
         {
-            //look for other kinds of problems
-            if (unit == "DD")
+            string collYear = row["collyy"].ToString().Trim();
+            return yearIsValid(collYear);
+        }
+
+        public static bool collMonthIsValid(DataRow row)
+        {
+            string collMon = row["collmm"].ToString().Trim();
+            string collDay = row["colldd"].ToString().Trim();
+            return monthIsValid(collMon, collDay);
+        }
+
+        public static bool collDayIsValid(DataRow row)
+        {
+            string collDay = row["colldd"].ToString().Trim();
+
+            if (!String.IsNullOrEmpty(collDay) && collDay != "0")
             {
-
-                double lat = double.Parse(latStr);
-                double lng = double.Parse(lngStr);
-
-                if (lat > 90 || lat < -90 || lng > 180 || lng < -180)
+                if (!collMonthIsValid(row))
                 {
-                    throw new Exception();
+                    return false; //day cannot be valid if there is no month
                 }
                 else
                 {
-                    return $"{lat}, {lng}";
+                    try
+                    {
+                        int day = int.Parse(collDay);
+                        int mon = int.Parse(row["collmm"].ToString().Trim());
+                        if (collYearIsValid(row))
+                        {
+                            int year = int.Parse(row["collyy"].ToString().Trim());
+                            return dayIsValid(year, mon, day);
+                        }
+                        else
+                        {
+                            return dayIsValid(mon, day);
+                        }
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        public static bool detYearIsValid(DataRow row)
+        {
+            string detYear = row["detyy"].ToString().Trim();
+            return yearIsValid(detYear);
+        }
+
+        public static bool detMonthIsValid(DataRow row)
+        {
+            string detMon = row["detmm"].ToString().Trim();
+            string detDay = row["detdd"].ToString().Trim();
+            return monthIsValid(detMon, detDay);
+
+        }
+
+        public static bool detDayIsValid(DataRow row)
+        {
+            string detDay = row["detdd"].ToString().Trim();
+
+            if (!String.IsNullOrEmpty(detDay) && detDay != "0")
+            {
+                if (!detMonthIsValid(row))
+                {
+                    return false; //day cannot be valid if there is no month
+                }
+                else
+                {
+                    try
+                    {
+                        int day = int.Parse(detDay);
+                        int mon = int.Parse(row["detmm"].ToString().Trim());
+                        if (detYearIsValid(row))
+                        {
+                            int year = int.Parse(row["detyy"].ToString().Trim());
+                            return dayIsValid(year, mon, day);
+                        }
+                        else
+                        {
+                            return dayIsValid(mon, day);
+                        }
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        public static bool collDateIsValid(DataRow row)
+        {
+            return collYearIsValid(row) && collMonthIsValid(row) && collDayIsValid(row);
+        }
+
+        public static bool detDateIsValid(DataRow row)
+        {
+            return detYearIsValid(row) && detMonthIsValid(row) && detDayIsValid(row);
+        }
+
+        public static bool detDateAfterCollDate(DataRow row)
+        {
+
+            if(collDateIsValid(row) && detDateIsValid(row))
+            {
+                string detDayStr = row["detdd"].ToString().Trim();
+                string detMonthStr = row["detmm"].ToString().Trim();
+                string detYearStr = row["detyy"].ToString().Trim();
+
+                string collDayStr = row["colldd"].ToString().Trim();
+                string collMonthStr = row["collmm"].ToString().Trim();
+                string collYearStr = row["collyy"].ToString().Trim();
+
+                //make them all full dates and compare
+                int detYear = int.Parse(detYearStr);
+
+                int detMonth;
+                if (String.IsNullOrEmpty(detMonthStr))
+                {
+                    detMonth = 12; //for dets we need to assume the last month of the year if only the year. 
+                }
+                else
+                {
+                    detMonth = int.Parse(detMonthStr);
                 }
 
+                int detDay;
+                if (String.IsNullOrEmpty(detDayStr))
+                {
+                    detDay = DateTime.DaysInMonth(detYear, detMonth); //for dets we need to assume the last day of the month if no day
+                }
+                else
+                {
+                    detDay = int.Parse(detDayStr);
+                }
+
+                DateTime detDate = new DateTime(detYear, detMonth, detDay);
+
+                int collYear = int.Parse(collYearStr);
+
+                int collMonth;
+                if (String.IsNullOrEmpty(collMonthStr))
+                {
+                    collMonth = 1; // for collection dates we assume first month of the year if no month
+                }
+                else
+                {
+                    collMonth = int.Parse(collMonthStr);
+                }
+
+                int collDay;
+                if (String.IsNullOrEmpty(collDayStr))
+                {
+                    collDay = 1; // for collection dates we assume first day of the month if no day
+                }
+                else
+                {
+                    collDay = int.Parse(collDayStr);
+                }
+
+                DateTime collDate = new DateTime(collYear, collMonth, collDay);
+
+                return detDate >= collDate;
+
             }
-            else //DM or DMS
+            else
             {
-                //there is always a decimal
+                throw new Exception("coll date or det date invalid");
+            }
+
+        }
+
+        //HELPERS, BUT SOME USED ELSEWHERE
+
+        //Are coordinates and associated fields valid
+        //TESTED
+        public static bool coordsAreValid(DataRow row)
+        {
+            string errors = getCoordErrors(row);
+            return String.IsNullOrEmpty(errors);
+        }
+
+        //find errors in lat, long and associated fields
+        //TESTED VIA coordsAreValiD()
+        public static string getCoordErrors(DataRow row)
+        {
+
+            string latStr = row["lat"].ToString().Trim();
+            string ns = row["ns"].ToString().Trim();
+            string lngStr = row["long"].ToString().Trim();
+            string ew = row["ew"].ToString().Trim();
+            string unit = row["llunit"].ToString().Trim();
+            string qds = row["qds"].ToString().Trim();
+
+            List<string> coordErrors = new List<string>();
+
+            //if we have one, we must have the other
+            //I don't think this can happen in Brahms but just in case
+            if (latStr != lngStr && (String.IsNullOrEmpty(latStr) || String.IsNullOrEmpty(lngStr)))
+            {
+                coordErrors.Add("lat and long must both contain values or both be empty");
+            }
+
+            //lat and lng must be numbers represented as strings
+            //this gets complicated because we can't carry on if this fails
+            double lat;
+            double lng;
+            bool carryOn = true;
+            try
+            {
+                lat = double.Parse(latStr);
+            }
+            catch
+            {
+                coordErrors.Add("lat is not a valid number");
+                carryOn = false;
+            }
+
+            try
+            {
+                lng = double.Parse(lngStr);
+
+            }
+            catch
+            {
+                coordErrors.Add("long is not a valid number");
+                carryOn = false;
+            }
+
+            if (carryOn)
+            {
+                //this will work now
+                lat = double.Parse(latStr);
+                lng = double.Parse(lngStr);
+
+
+                //one can't be zero and the other a number
+                if (Math.Abs(lat) < 0.0000001 || Math.Abs(lng) < 0.0000001)
+                {
+                    if (Math.Abs(lat) < 0.0000001 && Math.Abs(lng) < 0.0000001) //if they are both zeros, then not captured, ignore everything else. 
+                    {
+                        return "";
+                    }
+                    else
+                    {
+                        coordErrors.Add("lat and long cannot be zero if captured");
+                    }
+                }
+
+                //we can ingore DD here as we just need the degrees part
                 char[] separators = { '.' };
                 string[] latParts = latStr.Split(separators);
                 string[] lngParts = lngStr.Split(separators);
@@ -422,30 +686,35 @@ namespace RDEManager
                 int latDeg = int.Parse(latParts[0]);
                 int lngDeg = int.Parse(lngParts[0]);
 
-                if (latDeg > 90 || latDeg < -90 || lngDeg > 180 || lngDeg < -180)
+                if (latDeg > 90 || latDeg < 0 )
                 {
-                    throw new Exception();
+                    coordErrors.Add("lat not between 0 and 90");
+                }
+
+                if (lngDeg > 180 || lngDeg < 0)
+                {
+                    coordErrors.Add("long not between 0 and 180");
                 }
 
                 //the M or MS part
-                if (unit == "DM") //its one number
+                if (unit == "DM") 
                 {
-                    //add the decimals
+                    //add the decimal points
                     string latMin = latParts[1].Insert(2, ".");
                     string lngMin = lngParts[1].Insert(2, ".");
 
                     double latMinNum = double.Parse(latMin);
                     double lngMinNum = double.Parse(lngMin);
 
-                    if (latMinNum > 60 || lngMinNum > 60)
+                    if (latMinNum > 60)
                     {
-                        throw new Exception();
+                        coordErrors.Add("lat minutes greater than 60");
                     }
 
-                    double lat = latDeg + latMinNum / 60;
-                    double lng = lngDeg + lngMinNum / 60;
-
-                    return $"{lat}, {lng}";
+                    if (lngMinNum > 60)
+                    {
+                        coordErrors.Add("long minutes greater than 60");
+                    }
 
                 }
                 else if (unit == "DMS")
@@ -461,29 +730,191 @@ namespace RDEManager
                     double latSecNum = double.Parse(latSec);
                     double lngSecNum = double.Parse(lngSec);
 
-                    if (latMinNum > 60 || lngMinNum > 60)
+                    if (latMinNum > 60)
                     {
-                        throw new Exception();
+                        coordErrors.Add("lat minutes greater than 60");
                     }
 
-                    if (latSecNum > 60 || lngSecNum > 60)
+                    if (lngMinNum > 60)
                     {
-                        throw new Exception();
+                        coordErrors.Add("long minutes greater than 60");
                     }
 
-                    double lat = latDeg + latMinNum / 60 + latSecNum / 3600;
-                    double lng = lngDeg + lngMinNum / 60 + lngSecNum / 3600;
+                    if (latSecNum > 60)
+                    {
+                        coordErrors.Add("lat seconds greater than 60");
+                    }
 
-                    return $"{lat}, {lng}";
+                    if (lngSecNum > 60)
+                    {
+                        coordErrors.Add("long seconds greater than 60");
+                    }
 
                 }
-                else //there is no valid unit value
-                {
-                    throw new Exception();
-                }
+
             }
+
+            //unit must be one of DD, DM or DMS
+            string[] validUnits = { "DD", "DMS", "DM" };
+
+            if (!validUnits.Contains(unit))
+            {
+                coordErrors.Add("llunit not valid");
+            }
+
+            string[] validNS = { "N", "S" };
+            string[] validEW = { "E", "W" };
+
+            if (!validNS.Contains(ns))
+            {
+                coordErrors.Add("ns not valid");
+            }
+
+            if (!validEW.Contains(ew))
+            {
+                coordErrors.Add("ew not valid");
+            }
+
+            return String.Join("; ", coordErrors.ToArray());
+
         }
 
+        // unit is valid
+        //NOT TESTED
+        //I think it's now deprecated - see getCoordsErrors()
+        public static bool llunitIsValid(string unit)
+        {
+            //unit must be one of DD, DM or DMS
+            string[] validUnits = { "DD", "DMS", "DM" };
+
+            return validUnits.Contains(unit);
+        }
+
+        //get decimal coordinates from string
+        //INITIAL TEST AND WORKING, WAITING FOR HESTER....
+        public static string getDecimalCoords(DataRow row)
+        {
+            
+            if (coordsAreValid(row))
+            {
+
+                string latStr = row["lat"].ToString().Trim();
+                string ns = row["ns"].ToString().Trim();
+                string lngStr = row["long"].ToString().Trim();
+                string ew = row["ew"].ToString().Trim();
+                string unit = row["llunit"].ToString().Trim();
+                string qds = row["qds"].ToString().Trim();
+
+                if (unit == "DD")
+                {
+
+                    double lat = double.Parse(latStr);
+                    double lng = double.Parse(lngStr);
+
+                    if (ns == "S")
+                    {
+                        lat = -1 * lat;
+                    }
+
+                    if (ew == "W")
+                    {
+                        lng = -1 * lng;
+                    }
+
+                    //we need to use the precision of the longer string
+                    string longer = latStr.Length > lngStr.Length ? latStr : lngStr;
+                    int precision = longer.Split('.')[1].Length;
+                    string precStr = "N" + precision;
+
+                    return $"{lat.ToString(precStr)}, {lng.ToString(precStr)}";
+
+                }
+                else //DM or DMS
+                {
+                    //there is always a decimal
+                    char[] separators = { '.' };
+                    string[] latParts = latStr.Split(separators);
+                    string[] lngParts = lngStr.Split(separators);
+
+                    int latDeg = int.Parse(latParts[0]);
+                    int lngDeg = int.Parse(lngParts[0]);
+
+                    //the M or MS part
+                    if (unit == "DM") //its one number
+                    {
+                        //add the decimals
+                        string latMin = latParts[1].Insert(2, ".");
+                        string lngMin = lngParts[1].Insert(2, ".");
+
+                        double latMinNum = double.Parse(latMin);
+                        double lngMinNum = double.Parse(lngMin);
+
+                        double lat = latDeg + latMinNum / 60;
+                        double lng = lngDeg + lngMinNum / 60;
+
+                        if (ns == "S")
+                        {
+                            lat = -1 * lat;
+                        }
+
+                        if (ew == "W")
+                        {
+                            lng = -1 * lng;
+                        }
+
+                        //we need to use the precision of the longer string
+                        string longer = latMin.Length > lngMin.Length ? latMin : lngMin;
+                        int precision = longer.Split('.')[1].Length + 2; //the +2 is the key
+                        string precStr = "N" + precision;
+
+                        return $"{lat.ToString(precStr)}, {lng.ToString(precStr)}";
+
+                    }
+                    else //it has to be DMS
+                    {
+                        string latMin = latParts[1].Substring(0, 2);
+                        string lngMin = lngParts[1].Substring(0, 2);
+                        string latSec = latParts[1].Substring(2).Insert(2, ".");
+                        string lngSec = lngParts[1].Substring(2).Insert(2, ".");
+
+                        int latMinNum = int.Parse(latMin);
+                        int lngMinNum = int.Parse(lngMin);
+
+                        double latSecNum = double.Parse(latSec);
+                        double lngSecNum = double.Parse(lngSec);
+
+                        double lat = latDeg + (latMinNum / 60.0) + (latSecNum / 3600);
+                        double lng = lngDeg + (lngMinNum / 60.0) + (lngSecNum / 3600);
+
+                        if (ns == "S")
+                        {
+                            lat = -1 * lat;
+                        }
+
+                        if (ew == "W")
+                        {
+                            lng = -1 * lng;
+                        }
+
+                        string longer = latSec.Length > lngSec.Length ? latSec : lngSec;
+                        int precision = longer.Split('.')[1].Length + 4; //the +4 is the key
+                        string precStr = "N" + precision;
+
+                        return $"{lat.ToString(precStr)}, {lng.ToString(precStr)}";
+
+                    }
+                }
+            }
+            else
+            {
+                throw new Exception("Invalid coordinates");
+            }
+
+            
+        }
+
+        //get QDS from coordinates
+        //TESTED IN coordsMatchQDS(), WORKING
         public static string getQDSFromCoords(string decimalCoords) //note this works for southern Africa only
         {
             char[] separators = { ',' };
@@ -583,21 +1014,23 @@ namespace RDEManager
             return QDS;
         }
 
-        private static string getAgentNamesNotInList(string agentsString, DataTable masterAgents)
+        //check if agents names are valid and return those that are not
+        //TESTED and working
+        public static string getAgentNamesNotInList(string agentsString, DataTable masterAgents)
         {
 
             var masterAgentsEnum = masterAgents.AsEnumerable();
 
             //split the agents and remove periods from initials
             char[] agentSeparator = { ';' };
-            List<string> agentsStringList = agentsString.Split(agentSeparator).ToList();
+            List<string> agentsStringList = agentsString.Split(agentSeparator).Select(a => a.Trim()).ToList();
 
-            string agentsNotMatched = "";
+            List<string> agentsNotMatched = new List<string>();
             //create a list of agents
-            foreach(string agentString in agentsStringList)
+            foreach(string agent in agentsStringList)
             {
                 char[] sep = { ',' };
-                string[] parts = agentsString.Split(sep);
+                string[] parts = agent.Split(sep);
                 string lastName = parts[0].Trim();
                 string initials = parts[1].Replace(".", "").Replace(" ", "").Trim(); //replace periods and whitespace
 
@@ -605,19 +1038,112 @@ namespace RDEManager
 
                 if (matchingAgentCount < 1) //we must have at least one
                 {
-                    agentsNotMatched += agentString + "; ";
+                    agentsNotMatched.Add(agent);
                 }
             }
 
-            if (agentsNotMatched != "")
-            {
-                //trim the last '; '
-                agentsNotMatched = agentsNotMatched.Substring(0, agentsNotMatched.Length - 2);
 
+            return String.Join("; ", agentsNotMatched.ToArray());
+
+        }
+
+        public static bool yearIsValid(string yearStr)
+        {
+
+            yearStr = yearStr.Trim();
+
+            if(String.IsNullOrEmpty(yearStr))
+            {
+                return false;
+            }
+            else
+            {
+                try
+                {
+                    int year = int.Parse(yearStr);
+                    if (year > 1850 && year <= DateTime.Now.Year)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            
+        }
+
+        public static bool monthIsValid(string monStr, string dayStr)
+        {
+            if (!String.IsNullOrEmpty(monStr) && monStr != "0")
+            {
+                try
+                {
+                    int mon = int.Parse(monStr);
+                    if (mon > 0 && mon <= 12)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            else //we need to check if we have a day an no month, in which case month is not valid
+            {
+                if (!String.IsNullOrEmpty(dayStr) && dayStr != "0")
+                {
+                    try
+                    {
+                        int.Parse(dayStr);
+                        return false;
+                    }
+                    catch
+                    {
+                        return true;
+                    }
+                }
+                else
+                {
+                    return true;
+                }
+            }
+        }
+
+        public static bool dayIsValid(int year, int mon, int day)
+        {
+            return day > 0 && day <= DateTime.DaysInMonth(year, mon);
+        }
+
+        public static bool dayIsValid(int mon, int day)
+        {
+            List<int> ThirtyOneDayMonths = new List<int>(new int[] { 1, 3, 5, 7, 8, 10, 12 });
+            int maxDays = 0;
+
+            if (mon == 2)
+            {
+                maxDays = 29;
+            }
+            else if (ThirtyOneDayMonths.Contains(mon))
+            {
+                maxDays = 31;
+            }
+            else
+            {
+                maxDays = 30;
             }
 
-            return agentsNotMatched;
-
+            return day > 0 && day <= maxDays;
         }
     }
 }

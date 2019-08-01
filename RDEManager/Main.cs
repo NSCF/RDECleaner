@@ -1,4 +1,5 @@
 ﻿using FileHelpers;
+using Microsoft.VisualBasic.FileIO;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -7,6 +8,8 @@ using System.Data.OleDb;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Forms;
 
 
@@ -23,6 +26,10 @@ namespace RDEManager
             this.dgvRecordsView.DataSource = this.viewRecordsBinding;
 
             this.dupsSearched = false;
+
+            this.CountryCodes = new CountryCodes();
+
+            this.rowErrors = new List<string>();
 
         }
 
@@ -68,22 +75,26 @@ namespace RDEManager
                 addDBFRecords(fileNames[i]);
             }
 
-            this.viewRecordsBinding.DataSource = this.records;
-
+            btnChooseImageFolder.Enabled = true;
+            btnChooseTaxonBackbone.Enabled = true;
+            btnChooseQDSCountries.Enabled = true;
+            btnChoosePeople.Enabled = true;
             btnCheckDuplicates.Enabled = true;
 
         }
 
         private void btnChooseImageFolder_Click(object sender, EventArgs e)
         {
-            using (var fbd = new FolderBrowserDialog())
+
+            FolderBrowserDialog fbd = new FolderBrowserDialog();
+            using (fbd)
             {
                 DialogResult result = fbd.ShowDialog();
 
                 if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
                 {
                     txtImageFolder.Text = fbd.SelectedPath;
-
+                    btnFindMissingRecords.Enabled = true;
                 }
             }
         }
@@ -93,7 +104,10 @@ namespace RDEManager
 
             this.taxa = new DataTable();
 
-            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Title = "Choose the taxon backbone file";
+
+            using (openFileDialog)
             {
 
                 openFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
@@ -125,8 +139,10 @@ namespace RDEManager
 
         private void btnChooseQDSCountries_Click(object sender, EventArgs e)
         {
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Title = "Choose the QDSCountries list";
 
-            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            using (openFileDialog)
             {
 
                 openFileDialog.Filter = "csv files (*.csv)|*.csv";
@@ -137,12 +153,59 @@ namespace RDEManager
 
                     string QDSCountriesFile = Path.GetFileName(openFileDialog.FileName);
 
-                    this.QDSCountries = new List<QDSCountry>();
-                    var engine = new FileHelperEngine<QDSCountry>();
+                    List<CountryQDS> QDSPerCountryCode = new List<CountryQDS>();
+                    var engine = new FileHelperEngine<CountryQDS>();
                     
+                    //read it all out of the CSV and then convert to the dictionary
                     try
                     {
-                        QDSCountries = engine.ReadFile("FileIn.txt").ToList();
+                        using (TextFieldParser parser = new TextFieldParser(openFileDialog.FileName))
+                        {
+                            parser.TextFieldType = FieldType.Delimited;
+                            parser.SetDelimiters(",");
+
+                            int counter = 0; //so we can skip row 1
+                            while (!parser.EndOfData)
+                            {
+                                string[] values = parser.ReadFields();
+                                if (counter > 0) //skip row 1
+                                {
+                                    QDSPerCountryCode.Add(new CountryQDS(values[0], values[1]));
+                                }
+                                counter++;
+                            }
+
+                            if (QDSPerCountryCode.Count == 0)
+                            {
+                                throw new Exception("no QDS per country code returned");
+                            }
+
+                            //convert to the local dictionary
+                            this.CountryQDSs = new Dictionary<string, List<string>>();
+                            foreach (CountryQDS countryQDS in QDSPerCountryCode)
+                            {
+                                string country = "";
+                                bool success = this.CountryCodes.Codes.TryGetValue(countryQDS.CountryCode, out country);
+                                if (success)
+                                {
+                                    //is the country in the dictionary?
+                                    if (this.CountryQDSs.Keys.Contains(country))
+                                    {
+                                        this.CountryQDSs[country].Add(countryQDS.QDS);
+                                    }
+                                    else
+                                    {
+                                        List<string> qdsList = new List<string>();
+                                        qdsList.Add(countryQDS.QDS);
+                                        this.CountryQDSs.Add(country, qdsList);
+                                    }
+                                }
+                                else
+                                {
+                                    continue;
+                                }
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -151,7 +214,7 @@ namespace RDEManager
                     }
 
                     MessageBox.Show("QDSCountries file successfully read");
-                    txtTaxonBackbone.Text = QDSCountriesFile;
+                    txtQDSCountriesFile.Text = QDSCountriesFile;
                     return;
 
                 }
@@ -186,6 +249,7 @@ namespace RDEManager
 
                     MessageBox.Show("People table successfully imported");
                     txtPeopleTable.Text = peopleFile;
+                    this.btnCleanRecords.Enabled = true;
 
                 }
             }
@@ -193,6 +257,8 @@ namespace RDEManager
 
         private void btnFindMissingRecords_Click(object sender, EventArgs e)
         {
+            RecordCleaner.removeBarcodeExclamations(this.records);
+
             if (txtImageFolder.Text != null && txtImageFolder.Text != "")
             {
                 string fullPath = "";
@@ -200,7 +266,7 @@ namespace RDEManager
                 {
                     fullPath = Path.GetFullPath(txtImageFolder.Text);
                 }
-                catch (Exception ex)
+                catch
                 {
                     MessageBox.Show("Images folder is not valid. Please select a valid images folder");
                     return;
@@ -208,11 +274,13 @@ namespace RDEManager
 
                 if (Directory.Exists(fullPath))
                 {
+                    this.missingRecordLogs = new List<string>();
+
                     rtbReportErrors.Clear();
 
                     //get all the file paths and convert to fileNames
                     this.imagePaths = new List<string>();
-                    this.imagePaths = Directory.GetFiles(fullPath, "*", SearchOption.AllDirectories).ToList();
+                    this.imagePaths = Directory.GetFiles(fullPath, "*", System.IO.SearchOption.AllDirectories).ToList();
                     List<string> fileNames = new List<string>();
                     for (int i = 0; i < this.imagePaths.Count; i++)
                     {
@@ -238,7 +306,7 @@ namespace RDEManager
                         rtbReportErrors.Text += $"{notCaptured.Count} image files that do not match captured barcodes. See the log.{Environment.NewLine}";
                         rtbReportErrors.Text += codesNotCaptured + Environment.NewLine + Environment.NewLine;
                         string logNotCapturedMsg = $"Image file names without matching barcode values in RDE files ({notCaptured.Count}): {codesNotCaptured}";
-                        this.errorLogs.Add(logNotCapturedMsg);
+                        this.missingRecordLogs.Add(logNotCapturedMsg);
                     }
 
                     if (noImages.Count > 0)
@@ -250,8 +318,13 @@ namespace RDEManager
                         rtbReportErrors.Text += $"{noImages.Count} captured barcodes that do not match image files. See the log.";
                         rtbReportErrors.Text += codesNoImages + Environment.NewLine + Environment.NewLine;
                         string noImagesMsg = $"No corresponding images for the following RDE barcodes ({noImages.Count}): {codesNoImages}";
-                        this.errorLogs.Add(noImagesMsg);
+                        this.missingRecordLogs.Add(noImagesMsg);
                     }
+
+                    //write the error log file
+                    string logFileName = "missingRecords.log";
+                    System.IO.File.WriteAllLines(Path.Combine(this.workingDir, logFileName), this.missingRecordLogs.ToArray());
+
                 }
                 else
                 {
@@ -261,8 +334,7 @@ namespace RDEManager
             }
             else
             {
-                MessageBox.Show("No images folder selected. Captured records will not be checked against the images used.");
-                this.errorLogs.Insert(0, "IMAGES NOT CHECKED!!!!");
+                MessageBox.Show("No images folder selected. Captured records cannot be checked against images.");
             }
         }
 
@@ -274,23 +346,15 @@ namespace RDEManager
 
             if (!this.dupsSearched)
             {
-                this.findBotRecDuplicates();
+                this.findBotRecDuplicates(); //generates the list of duplicates. Next step is to process them
             }
 
-            MessageBox.Show($"{duplicatesRemoved} duplicate records removed");
+            MessageBox.Show($"{duplicatesRemoved} identical duplicate records removed");
 
             this.btnNextDuplicate.Enabled = true;
 
             this.btnCheckDuplicates.Enabled = false;
 
-        }
-
-        private void btnGetDuplicates_Click(object sender, EventArgs e)
-        {
-            if (!this.dupsSearched)
-            {
-                this.findBotRecDuplicates();
-            }
         }
 
         private void btnFindNextDuplicate_Click(object sender, EventArgs e)
@@ -307,11 +371,16 @@ namespace RDEManager
                     string quoted = $"'{dupBarcode}'";
                     INSearch += quoted + ", ";
                 }
-                INSearch = INSearch.Substring(0, INSearch.Length - 2);
+                INSearch = INSearch.Substring(0, INSearch.Length - 2); //remove the last comma
 
                 string expression = $"barcode IN ({INSearch})";
 
                 this.viewRecordsBinding.Filter = expression;
+
+                if(this.dgvRecordsView.DataSource == null)
+                {
+                    this.dgvRecordsView.DataSource = viewRecordsBinding;
+                }
 
                 this.botRecDuplicatesIndex++;
 
@@ -319,16 +388,61 @@ namespace RDEManager
             }
             else
             {
-                MessageBox.Show("All duplicates have been processed.");
+                this.dgvRecordsView.DataSource = null;
                 this.viewRecordsBinding.Filter = null;
-                this.btnCheckDuplicates.Enabled = false;
+                this.btnCheckDuplicates.Enabled = true;
+                this.btnNextDuplicate.Enabled = false;
+                this.btnMergeDups.Enabled = false;
+                this.btnDeleteRows.Enabled = false;
                 this.lblDupIndexCount.Text = "";
+
+                this.btnCleanRecords.Enabled = true;
+
+                MessageBox.Show("All duplicates have been processed.");
+                
+            }
+        }
+
+        private void btnFindErrors_Click(object sender, EventArgs e)
+        {
+            this.errorsBinding = new BindingList<string>(this.rowErrors);
+            //search for the next error if false
+            if (this.findNextRowWithErrors(0))
+            {
+                this.btnNextRowWithErrors.Enabled = true;
+                this.viewRecordsBinding.DataSource = this.records.Rows[this.errorRecordIndex];
+            }
+            else
+            {
+                MessageBox.Show("No errors found");
+                this.btnAddQDSFromCoords.Enabled = true;
+            }
+        }
+
+        private void btnNextRowWithErrors_Click(object sender, EventArgs e)
+        {
+            if (this.checkingQDSErrorsOnly)
+            {
+                bool errorFound = this.findNextCountryQDSError(this.errorRecordIndex + 1);
+                if (!errorFound)
+                {
+                    MessageBox.Show("no more errors found");
+                }
+            }
+            else
+            {
+                bool errorFound = this.findNextRowWithErrors(this.errorRecordIndex + 1);
+                if (!errorFound)
+                {
+                    MessageBox.Show("no more errors found");
+                    this.btnAddQDSFromCoords.Enabled = true;
+                }
             }
         }
 
         private void btnTestSomething_Click(object sender, EventArgs e)
         {
-            this.viewRecordsBinding.DataSource = this.records;
+            this.btnChooseQDSCountries_Click(sender, e);
         }
 
         private void dgvRecordsView_SelectionChanged(object sender, EventArgs e)
@@ -477,7 +591,7 @@ namespace RDEManager
             RecordCleaner.clearZeroCoordinates(this.records);
 
             MessageBox.Show("Record cleaning complete");
-
+            this.btnFindErrors.Enabled = true;
 
         }
 
@@ -497,7 +611,210 @@ namespace RDEManager
 
         private void btnCheckQDSCountry_Click(object sender, EventArgs e)
         {
-            //TODO this is a row level check again
+
+            this.checkingQDSErrorsOnly = true;
+            //search for the next error if false
+            if (findNextCountryQDSError(0))
+            {
+                this.viewRecordsBinding.DataSource = this.records.Rows[this.errorRecordIndex];
+                this.errorsBinding = new BindingList<string>(this.rowErrors);
+            }
+            else
+            {
+                this.checkingQDSErrorsOnly = false;
+                MessageBox.Show("No QDS errors found");
+            }
+
+        }
+
+        //save the corrected dataset
+        private void btnSaveChanges_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog saveFileDialog1 = new SaveFileDialog();
+            saveFileDialog1.Filter = "dbf files (*.dbf)|*.dbf";
+            saveFileDialog1.Title = "Save your changes";
+            saveFileDialog1.OverwritePrompt = true;
+            saveFileDialog1.ShowDialog();
+
+            // If the file name is not an empty string open it for saving.  
+            if (saveFileDialog1.FileName != "")
+            {
+                //copy a file, clear it, and write all the new records to it. 
+                string sourceFile = this.txtChooseDBF.Text.Split(';')[0].Trim();
+
+                try
+                {
+                    // Will not overwrite if the destination file already exists.
+                    File.Copy(Path.Combine(this.workingDir, sourceFile), saveFileDialog1.FileName, true);
+
+                    //we also need to copy the fpt file
+                    string sourceFPT = sourceFile.ToLower().Replace(".dbf", ".fpt");
+                    string destFPT = saveFileDialog1.FileName.ToLower().Replace(".dbf", ".fpt");
+                    File.Copy(Path.Combine(this.workingDir, sourceFPT), destFPT, true);
+                }
+
+                // Catch exception if the file was already copied.
+                catch (IOException copyError)
+                {
+                    MessageBox.Show($"Error with saving file. Copy template failed with message: {copyError.Message}");
+                    return;
+                }
+
+                //connect to the new file
+                string fileNameOnly = Path.GetFileName(saveFileDialog1.FileName);
+                string ext = Path.GetExtension(saveFileDialog1.FileName);
+                string tableName = fileNameOnly.Replace(ext, "");
+
+                string connectionString = @"Provider=VFPOLEDB.1;Data Source=" + saveFileDialog1.FileName;
+                string deleteSQL = $"DELETE FROM {tableName}";
+
+                using (OleDbConnection connection = new OleDbConnection(connectionString))
+                {
+
+                    try
+                    {
+                        connection.Open();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error with database connection: " + ex.Message);
+                        return;
+                    }
+
+                    //get the file schema
+                    OleDbCommand cm = new OleDbCommand($"select top 5 * from {tableName} order by barcode", connection);
+                    OleDbDataReader myReader = cm.ExecuteReader();
+                    DataTable schemaTable = myReader.GetSchemaTable(); ;
+                    
+
+                    //clear all records
+                    OleDbCommand deleteCmd = new OleDbCommand(deleteSQL, connection);
+                    try
+                    {
+                        int deletedRecordCount = deleteCmd.ExecuteNonQuery();
+                        //MessageBox.Show($"Records deleted: {deletedRecordCount}");
+                    }
+                    catch(Exception ex)
+                    {
+                        MessageBox.Show($"Error with saving file. Empty template failed with message: {ex.Message}");
+                        return;
+                    }
+
+                    //add the new records
+                    OleDbCommand addRecordCmd = new OleDbCommand();
+                    addRecordCmd.Connection = connection;
+
+                    List<string> columnNames = new List<string>();
+                    foreach(DataColumn col in this.records.Columns)
+                    {
+                        columnNames.Add(col.ColumnName.Trim());
+                    }
+
+                    string joinedColNames = String.Join(", ", columnNames.ToArray());
+
+                    //we need the list of parameter spaceholders for the sql statement
+                    List<string> placeholders = new List<string>();
+                    for (int i = 0; i < columnNames.Count; i++)
+                    {
+                        placeholders.Add("?");
+                    }
+
+                    string joinedPlaceholders = String.Join(", ", placeholders.ToArray());
+
+                    string addSQL = $"INSERT INTO {tableName} ({joinedColNames}) VALUES ({joinedPlaceholders})";
+
+                    OleDbCommand insertCommand = new OleDbCommand(addSQL, connection);
+                    int counter = 0; // this is just for keeping track during debugging
+                    foreach (DataRow row in this.records.Rows)
+                    {
+                        counter++;
+                        insertCommand.Parameters.Clear(); // clean everything out
+                        
+                        foreach (string colName in columnNames)
+                        {
+                            //get the type for this column
+                            DataRow schema = schemaTable.Select($"ColumnName = '{colName}'")[0];
+                            string coltype = schema["DataType"].ToString();
+                            bool isLong = (bool)schema["IsLong"];
+
+                            OleDbType OleColType;
+                            if (coltype == "System.String")
+                            {
+                                if (isLong)
+                                {
+                                    OleColType = OleDbType.LongVarChar;
+                                    insertCommand.Parameters.Add(colName, OleColType).Value = row[colName].ToString().Trim();
+                                }
+                                else
+                                {
+                                    OleColType = OleDbType.Char;
+                                    insertCommand.Parameters.Add(colName, OleColType).Value = row[colName].ToString().Trim();
+                                }
+                            }
+                            else if(coltype == "System.Decimal")
+                            {
+                                OleColType = OleDbType.Decimal;
+                                string val = row[colName].ToString().Trim();
+                                if (String.IsNullOrEmpty(val))
+                                {
+                                    insertCommand.Parameters.Add(colName, OleColType).Value = OleDbType.Empty;
+                                }
+                                else
+                                {
+                                    insertCommand.Parameters.Add(colName, OleColType).Value = decimal.Parse(val);
+                                }
+                                
+                            }
+                            else if (coltype == "System.Boolean")
+                            {
+                                OleColType = OleDbType.Boolean;
+                                string val = row[colName].ToString().Trim();
+                                if (String.IsNullOrEmpty(val))
+                                {
+                                    insertCommand.Parameters.Add(colName, OleColType).Value = OleDbType.Empty;
+                                }
+                                else
+                                {
+                                    insertCommand.Parameters.Add(colName, OleColType).Value = bool.Parse(val);
+                                }
+                            }
+                            else if (coltype == "System.DateTime")
+                            {
+                                OleColType = OleDbType.DBDate;
+                                string val = row[colName].ToString().Trim();
+                                if (String.IsNullOrEmpty(val))
+                                {
+                                    insertCommand.Parameters.Add(colName, OleColType).Value = null;
+                                }
+                                else
+                                {
+                                    insertCommand.Parameters.Add(colName, OleColType).Value = DateTime.Parse(val);
+                                }
+                            }
+                            else
+                            {
+                                throw new Exception("unmatched datatype in dbf file");
+                            }
+
+                        }
+
+                        try
+                        {
+                            insertCommand.ExecuteNonQuery();
+                        }
+                        catch (OleDbException ex)
+                        {
+                            MessageBox.Show($"Error saving file. Could not add row with message {ex.Message}");
+                            return;
+                        }
+                    }
+
+                    //if we get here, it worked!!
+                    connection.Close();
+                    MessageBox.Show("Records successfully saved");
+                    
+                }
+            }
         }
 
         //handle delete button presses for datagrid rows
@@ -509,8 +826,6 @@ namespace RDEManager
                 MessageBox.Show("Use the buttons to delete records...");
             }
         }
-
-        
 
         //HELPER FUNCTIONS
 
@@ -539,12 +854,9 @@ namespace RDEManager
                     OleDbCommand cmd = new OleDbCommand(selectSQL, connection);
                     OleDbDataAdapter DA = new OleDbDataAdapter(cmd);
 
-
-
                     try
                     {
                         DA.Fill(target);
-
                     }
                     catch (Exception ex)
                     {
@@ -606,12 +918,18 @@ namespace RDEManager
             foreach (DataRow row in this.records.Rows)
             {
                 string barcode = row["barcode"].ToString().Trim();
-                string root = barcode.Split(seps)[0];
 
                 //sometimes there is no barcode
-                if (String.IsNullOrEmpty(root))
+                if (String.IsNullOrEmpty(barcode))
                 {
                     continue;
+                }
+
+                string root = barcode.Split(seps)[0];
+                //sometimes we have a, b, etc at the end
+                if(char.IsLetter(root[root.Length - 1]))
+                {
+                    root = root.Substring(0, root.Length - 1);
                 }
 
                 // check if we've already processed this root
@@ -619,7 +937,7 @@ namespace RDEManager
 
                 if (cnt == 0)
                 {
-                    DataRow[] dups = this.records.Select($"barcode like '{root}*'");
+                    DataRow[] dups = this.records.Select($"TRIM(barcode) like '{root}*'");
 
                     if (dups.Count() > 1)
                     {
@@ -636,369 +954,145 @@ namespace RDEManager
 
                     }
                 }
+                else
+                {
+                    continue;
+                }
 
             }
 
             this.dupsSearched = true;
         }
 
-        //ERROR CHECKING FUNCTIONS
-
-        private void errorCheckingAll()
+        private bool findNextRowWithErrors(int startIndex)
         {
-            //preparation
-            this.RDEUIErrors = new List<string>();
-            this.errorsBinding = new BindingList<string>(RDEUIErrors);
-            //this.lbRDEErrors.DataSource = errorsBinding;
+            this.rowErrors.Clear();
 
-            this.errorLogs = new List<string>();
-
-            this.columnNames = this.records.Columns.Cast<DataColumn>()
-                                 .Select(x => x.ColumnName)
-                                 .ToArray();
-
-
-            this.countryCodes = new Dictionary<string, string>();
-
-            countryCodes.Add("South Africa", "SOU");
-            countryCodes.Add("Zimbabwe", "ZIM");
-            countryCodes.Add("Zambia", "ZAM");
-            countryCodes.Add("Tanzania", "TAN");
-            countryCodes.Add("Swaziland", "SWA");
-            countryCodes.Add("Namibia", "NAM");
-            countryCodes.Add("Mozambique", "MOZ");
-            countryCodes.Add("Malawi", "MAA");
-            countryCodes.Add("Lesotho", "LES");
-            countryCodes.Add("Botswana", "BOT");
-            countryCodes.Add("Angola", "ANG");
-
-            //checking countries
-            HashSet<string> extCountriesOrErrors = new HashSet<string>();
-            List<string> barcodesToCheck = new List<string>();
-            if (extCountriesOrErrors.Count > 0)
+            if (startIndex < this.records.Rows.Count)
             {
-
-                String[] stringArray = new String[extCountriesOrErrors.Count];
-                extCountriesOrErrors.CopyTo(stringArray);
-                this.errorsBinding.Add($"Check these country names found in {barcodesToCheck.Count} records: {String.Join("; ", stringArray)}");
-                this.errorLogs.Add($"The following {barcodesToCheck.Count} have country names that need to be checked: " +
-                    $"{String.Join("; ", barcodesToCheck.ToArray())}.{Environment.NewLine}" +
-                    $"Country names: {String.Join("; ", stringArray)}");
-            }
-
-            //the heavy lifting...
-            this.checkLocalityData();
-            this.findNonIdenticalDuplicates();
-
-            //write the error log
-            using (System.IO.StreamWriter logfile =
-            new System.IO.StreamWriter($"{this.workingDir}\\errorlog.txt"))
-            {
-                string lastDir = this.workingDir.Substring(this.workingDir.LastIndexOf('\\') + 1);
-
-                logfile.WriteLine($"Error log for {lastDir} \\ {txtChooseDBF.Text}");
-                logfile.WriteLine($"{DateTime.Now}");
-                logfile.Write(Environment.NewLine);
-
-                foreach (string log in this.errorLogs)
+                for (int i = startIndex; i < this.records.Rows.Count; i++)
                 {
-                    logfile.WriteLine(log);
-                    logfile.Write(Environment.NewLine);
-                }
-            }
-        }
 
-        
+                    DataRow row = this.records.Rows[i];
 
-        //the major, minor and locality fields are empty
-        private void checkLocalityData()
-        {
-            this.localityWithValues = new List<DataRow>();
-            this.majorareaWithValues = new List<DataRow>();
-            this.minorareaWithValues = new List<DataRow>();
-
-            //locality must be empty
-            if (columnNames.Contains("locality"))
-            {
-                localityWithValues = this.records.Select("locality is not null and trim(locality) <> ''").ToList();
-                if (localityWithValues.Count > 0)
-                {
-                    string locmsg = $"Field 'locality' contains values for {localityWithValues.Count} records. All locality data must be recorded in 'locnotes'. See the log.";
-                    errorsBinding.Add(locmsg);
-                    string loclogmsg = $"{localityWithValues.Count } records with locality values: {String.Join("; ", localityWithValues.Select(row => row["barcode"].ToString().Trim()).ToArray())}.";
-                    this.errorLogs.Add(loclogmsg);
-                }
-            }
-
-            //majorarea must be empty
-            if (columnNames.Contains("majorarea"))
-            {
-                majorareaWithValues = this.records.Select("majorarea is not null and trim(majorarea) <> ''").ToList();
-                if (majorareaWithValues.Count > 0)
-                {
-                    string majormsg = $"Field 'majorarea' contains values for {majorareaWithValues.Count} records. All locality data must be recorded in 'locnotes'. See the log.";
-                    errorsBinding.Add(majormsg);
-                    string majorlogmsg = $"{majorareaWithValues.Count} records with values for majorarea: {String.Join("; ", majorareaWithValues.Select(row => row["barcode"].ToString().Trim()).ToArray())}.";
-                    this.errorLogs.Add(majorlogmsg);
-                }
-            }
-
-            //minorarea must be empty
-            if (columnNames.Contains("minorarea"))
-            {
-                minorareaWithValues = this.records.Select("minorarea is not null and trim(minorarea) <> ''").ToList();
-                if (minorareaWithValues.Count > 0)
-                {
-                    string minormsg = $"Field 'minorarea' contains values for {minorareaWithValues.Count} records. All locality data must be recorded in 'locnotes'";
-                    errorsBinding.Add(minormsg);
-                    string minorlogmsg = $"{minorareaWithValues.Count} records with values for majorarea: {String.Join("; ", minorareaWithValues.Select(row => row["barcode"].ToString().Trim()).ToArray())}.";
-                    this.errorLogs.Add(minorlogmsg);
-                }
-            }
-        }
-
-        //non-identical duplicates
-        private void findNonIdenticalDuplicates()
-        {
-            List<string> capturedBarcodes = this.records.AsEnumerable().Select(x => x["barcode"].ToString().ToUpper().Trim()).ToList();
-            var duplicates = capturedBarcodes
-                //.Select(b => b.Contains("-") ? b.Substring(0, b.LastIndexOf('-')).Trim() : b.Trim()) //comment this out if we don't want to look at the dash numbers (sheet numbers)
-                .GroupBy(x => x.Trim())
-                .Where(g => g.Count() > 1)
-                .Select(y => new { Element = y.Key, Counter = y.Count() })
-                .ToList();
-
-            if (duplicates.Count > 0)
-            {
-
-                string dupMessage = $"The following {duplicates.Count} records have non-identical duplicates: ";
-                duplicates.ForEach(dup =>
-                {
-                    dupMessage += $"{dup.Element} ({dup.Counter} duplicates); ";
-                });
-
-                dupMessage = dupMessage.Substring(0, dupMessage.Length - 2); //trim the last '; '
-
-                errorsBinding.Add($"There are {duplicates.Count} non-identical duplicates. See the log.");
-                this.errorLogs.Add(dupMessage);
-            }
-        }
-
-        //check all images have been captured
-        private void checkAllImagesCaptured()
-        {
-            
-
-        }
-
-        //check captured names against the taxon backbone
-        private void checkTaxonBackbone()
-        {
-            if (txtTaxonBackbone.Text != null && txtTaxonBackbone.Text != "" && this.taxa.Rows.Count > 0)
-            {
-                
-
-            }
-        }
-
-        //check dates
-        private void checkDates()
-        {
-       
-            List<string> yearErrors = new List<string>();
-            List<string> monthErrors = new List<string>();
-            List<string> dayErrors = new List<string>();
-            foreach (DataRow row in this.records.Rows)
-            {
-                //years
-                int year = -9999; //we need this again later for the day check
-                string yearStr = row["year"].ToString().Trim();
-                if (!String.IsNullOrEmpty(yearStr))
-                {
-                    try
+                    if (!RecordErrorFinder.numberIsAnIntegerOrSN(row))
                     {
-                        year = int.Parse(yearStr);
-                        if (year < 1850 || year > DateTime.Now.Year)
+                        this.rowErrors.Add(RecordErrors.collNumberError);
+                    }
+
+                    if (!RecordErrorFinder.countryInList(row, this.CountryCodes))
+                    {
+                        this.rowErrors.Add(RecordErrors.countryInvalid);
+                    }
+
+                    if (!RecordErrorFinder.majorAreaIsEmpty(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.majorareaEmpty);
+                    }
+
+                    if (!RecordErrorFinder.minorAreaIsEmpty(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.minorareaEmpty);
+                    }
+
+                    if (!RecordErrorFinder.localityIsEmpty(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.localityEmpty);
+                    }
+
+                    if (!RecordErrorFinder.higherTaxaAllPresent(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.higherTaxaMissing);
+                    }
+
+                    string ranksNotInBackbone = RecordErrorFinder.getRanksNotInBackbone(row, this.taxa);
+                    if (!String.IsNullOrEmpty(ranksNotInBackbone))
+                    {
+                        this.rowErrors.Add($"{RecordErrors.ranksNotInBackbone}: {ranksNotInBackbone}");
+                    }
+
+                    string coordsErrors = RecordErrorFinder.getCoordErrors(row);
+                    if (!String.IsNullOrEmpty(coordsErrors))
+                    {
+                        this.rowErrors.Add($"{RecordErrors.coordinateErrors}: {coordsErrors}");
+                    }
+
+                    if (!RecordErrorFinder.isQDSValid(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.qdsInvalid);
+                    }
+
+                    if (!RecordErrorFinder.QDSValidForCountry(row, this.CountryQDSs))
+                    {
+                        this.rowErrors.Add(RecordErrors.qdsNotValidForCountry);
+                    }
+                    else //TEST FOR THE QDS - COORDINATES MATCH HERE
+                    {
+                        if (String.IsNullOrEmpty(coordsErrors))
                         {
-                            yearErrors.Add(row["barcode"].ToString().Trim());
-                            //set it back to -1 because we use it again later
-                            year = -9999;
-                        }
-                    }
-                    catch
-                    {
-                        yearErrors.Add(row["barcode"].ToString().Trim());
-                    }
-                }
-
-                //months
-                int mon = -9999; //we use this later
-                string monStr = row["month"].ToString().Trim();
-                if (!String.IsNullOrEmpty(monStr))
-                {
-                    
-                    try
-                    {
-                        mon = int.Parse(monStr);
-                        if (mon < 1 || mon > 12)
-                        {
-                            monthErrors.Add(row["barcode"].ToString().Trim());
-                            mon = -9999;
-                        }
-                    }
-                    catch
-                    {
-                        monthErrors.Add(row["barcode"].ToString().Trim());
-                    }
-                }
-
-                //months
-                string dayStr = row["day"].ToString().Trim();
-                if (!String.IsNullOrEmpty(dayStr))
-                {
-                    int day = -9999;
-                    try
-                    {
-                        day = int.Parse(dayStr);
-                    }
-                    catch
-                    {
-                        dayErrors.Add(row["barcode"].ToString().Trim());
-                    }
-
-                    //this only runs if day is an integer
-                    if (day != -9999)
-                    {
-                        if (mon != -9999)
-                        {
-                            int maxDays;
-                            if (year != -9999)
+                            if (!RecordErrorFinder.coordsMatchQDS(row))
                             {
-                                maxDays = DateTime.DaysInMonth(year, mon);
-                            }
-                            else 
-                            {
-                                List<int> ThirtyOneDayMonths = new List<int>(new int[] { 1, 3, 5, 7, 8, 10, 12 });
-
-                                if (mon == 2)
-                                {
-                                    maxDays = 29;
-                                }
-                                else if (ThirtyOneDayMonths.Contains(mon))
-                                {
-                                    maxDays = 31;
-                                }
-                                else
-                                {
-                                    maxDays = 30;
-                                }
-                            }
-
-                            if (day < 1 || day > maxDays)
-                            {
-                                dayErrors.Add(row["barcode"].ToString().Trim());
-                            }
-                        }
-                        else //we have no month
-                        {
-                            if (day < 1 || day > 31)
-                            {
-                                dayErrors.Add(row["barcode"].ToString().Trim());
+                                this.rowErrors.Add(RecordErrors.qdsCoordsMismatch);
                             }
                         }
                     }
-                }
-            }
 
-            if (yearErrors.Count > 0 || monthErrors.Count > 0 || dayErrors.Count > 0)
+                    string collectorsNotIn = RecordErrorFinder.getCollectorsNotInList(row, this.people);
+                    if (!String.IsNullOrEmpty(collectorsNotIn))
+                    {
+                        this.rowErrors.Add("The following collectors are not in the list: " + collectorsNotIn);
+                    }
+
+                    if (!RecordErrorFinder.isDeterminerInList(row, this.people))
+                    {
+                        this.rowErrors.Add("The determiner is not in the list");
+                    }
+
+
+                    //check if we found errors and break if we did
+                    if (this.rowErrors.Count > 0)
+                    {
+                        this.errorRecordIndex = i;
+                        return true;
+                    }
+                }
+
+                //if we reach the end without finding errors
+                return false;
+            }
+            else
             {
-                int totalCount = yearErrors.Count + monthErrors.Count + dayErrors.Count;
-                errorsBinding.Add($"There were collection date errors with {totalCount} records. See the error log.");
-
-                if (yearErrors.Count > 0)
-                {
-                    this.errorLogs.Add($"Records with year errors ({yearErrors.Count}): {String.Join("; ", yearErrors.ToArray())}");
-                }
-
-                if (monthErrors.Count > 0)
-                {
-                    this.errorLogs.Add($"Records with month errors ({monthErrors.Count}): {String.Join("; ", monthErrors.ToArray())}");
-                }
-
-                if (dayErrors.Count > 0)
-                {
-                    this.errorLogs.Add($"Records with day errors ({dayErrors.Count}): {String.Join("; ", dayErrors.ToArray())}");
-                }
+                return false;
             }
+
         }
 
-        //check coordinates
-        //note that this does the QDS check also 
-        //Its a horrible dependency but it's there...
-        //To be honest I think adding the QDS needs to be an option for only after coordinates have been cleaned...
-        private void checkCoordinatesAndQDSs()
+        private bool findNextCountryQDSError(int startIndex)
         {
+            this.rowErrors.Clear();
 
-            List<string> coordErrors = new List<string>();
-            List<string> QDSCoordsMisMatchErrors = new List<string>();
-
-            foreach (DataRow row in this.records.Rows)
+            //loop through till we find an error
+            for (int i = startIndex; i < this.records.Rows.Count; i++)
             {
-                string barcode = row["barcode"].ToString().Trim();
-                string latStr = row["lat"].ToString().Trim();
-                string lngStr = row["long"].ToString().Trim();
-                string unit = row["llunit"].ToString().Trim();
-                string qds = row["qds"].ToString().Trim();
-
-                //Do we have anything?
-                if (latStr.Length > 0 && lngStr.Length > 0)
+                DataRow row = this.records.Rows[i];
+                if (!RecordErrorFinder.QDSValidForCountry(row, this.CountryQDSs))
                 {
-
-                    
-
-                } 
-            }
-
-            //report on what we got
-            if (coordErrors.Count > 0)
-            {
-                errorsBinding.Add($"There were coordinate errors for {coordErrors.Count} records. See the error log.");
-                errorLogs.Add($"There were coordinate errors in the following {coordErrors.Count} records: {String.Join("; ", coordErrors.ToArray())}");
-            }
-
-            if(QDSCoordsMisMatchErrors.Count > 0)
-            {
-                errorsBinding.Add($"There were coordinate / QDS mismatches for {QDSCoordsMisMatchErrors.Count} records. See the error log.");
-                errorLogs.Add($"There were coordinate / QDS mismatches for the following {QDSCoordsMisMatchErrors.Count} records: {String.Join("; ", QDSCoordsMisMatchErrors.ToArray())}");
-
-            }
-        }
-
-        //Check QDSs are valid for country
-        private void checkQDSValidForCountry()
-        {
-            if (this.QDSCountries.Count > 0)
-            {
-                List<string> QDSErrors = new List<string>();
-
-                //lets build the list of qdss per country so we don't have to do it on every iteration
-                Dictionary<string, List<string>> countryQDSs = new Dictionary<string, List<string>>();
-
-                foreach (KeyValuePair<string, string> code in this.countryCodes)
-                {
-                    string countryCode = code.Value;
-                    List<string> qdss = this.QDSCountries.Where(x => x.CountryCode == countryCode).Select(x => x.QDS.Trim()).ToList();
-                    countryQDSs.Add(countryCode, qdss);
-                }
-
-                if (QDSErrors.Count > 0)
-                {
-                    this.errorsBinding.Add($"There were country / QDS mismatches for {QDSErrors.Count} records.");
-                    this.errorLogs.Add($"There were country / QDS mismatches for the following {QDSErrors.Count} records: {String.Join("; ", QDSErrors.ToArray())}");
+                    this.errorRecordIndex = i;
+                    this.rowErrors.Add(RecordErrors.qdsNotValidForCountry);
+                    break;
                 }
             }
+
+            //return whether or not there was an error found
+            if (this.rowErrors.Count == 0)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
         }
-        
 
 
         //PROPERTIES
@@ -1017,19 +1111,26 @@ namespace RDEManager
         private DataTable viewRecords { get; set; }
         private BindingSource viewRecordsBinding { get; set; }
 
-        private List<QDSCountry> QDSCountries { get; set; }
+        private Dictionary<string, List<string>> CountryQDSs { get; set; }
+        public CountryCodes CountryCodes { get; set; }
         private string[] columnNames { get; set; }
         private List<string> imagePaths { get; set; }
 
-        Dictionary<string, string> countryCodes { get; set; }
+
+        //error checking
+        bool checkingQDSErrorsOnly { get; set; }
+        int errorRecordIndex { get; set; }
+        List<string> rowErrors { get; set; }
+        private BindingList<string> errorsBinding { get; set; }
 
         //reporting
         private BindingList<string> fileNamesBinding { get; set; }
         
 
         private List<string> RDEUIErrors { get; set; }
-        private BindingList<string> errorsBinding { get; set; }
-        private List<string> errorLogs { get; set; }
+        
+        private List<string> missingRecordLogs { get; set; }
+
 
         private List<string> RDEcleaning { get; set; }
         private BindingList<string> cleaningBinding { get; set; }
