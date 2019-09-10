@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace RDEManager
 {
@@ -100,6 +98,13 @@ namespace RDEManager
 
         //ROW LEVEL CHECKS 
 
+        //barcode is empty
+        public static bool barcodeHasValue(DataRow row)
+        {
+            string barcode = row["barcode"].ToString().Trim();
+            return !String.IsNullOrEmpty(barcode);
+        }
+
         //collector number should only be a number or s.n.
         //NOT TESTED
         public static bool numberIsAnIntegerOrSN(DataRow row)
@@ -134,8 +139,15 @@ namespace RDEManager
         {
 
             string country = row["country"].ToString().Trim();
-            return countryCodes.Codes.ContainsValue(country);
-
+            if (String.IsNullOrEmpty(country))
+            {
+                return true; //no test
+            }
+            else
+            {
+                return countryCodes.Codes.ContainsValue(country);
+            }
+            
         }
 
         //NOT TESTED
@@ -309,11 +321,22 @@ namespace RDEManager
             if (qds.Length > 0 && isQDSValid(row))
             {
                 string country = row["country"].ToString().Trim();
-                if (countryQDSs.Keys.Contains(country))
+                if (String.IsNullOrEmpty(country))
                 {
-                    return countryQDSs[country].Contains(qds);
+                    return true; //no test
                 }
-                return true; //no test
+                else
+                {
+                    if (countryQDSs.Keys.Contains(country))
+                    {
+                        return countryQDSs[country].Contains(qds);
+                    }
+                    else
+                    {
+                        return true; // no test
+                    }
+                }
+                
             } //else
             return true; //no test
         }
@@ -330,7 +353,7 @@ namespace RDEManager
             else
             {
 
-                Regex qdsRx = new Regex(@"^\d{4}[ABCD]{2}$");
+                Regex qdsRx = new Regex(@"^\d{4}[ABCD]{0,2}$");
                 if (qdsRx.Match(qds).Success)
                 {
                     //check that the degree parts are within range
@@ -401,7 +424,16 @@ namespace RDEManager
                 collectors += "; " + additional;
             }
 
-            return getAgentNamesNotInList(collectors, masterAgents);
+            if (String.IsNullOrEmpty(collectors))
+            {
+                return "";
+            }
+            else
+            {
+                return getAgentNamesNotInList(collectors, masterAgents);
+            }
+
+            
         }
 
         //check determiner in master table
@@ -625,6 +657,8 @@ namespace RDEManager
 
             List<string> coordErrors = new List<string>();
 
+            List<string> otherFieldErrors = new List<string>();
+
             //if we have one, we must have the other
             //I don't think this can happen in Brahms but just in case
             if (latStr != lngStr && (String.IsNullOrEmpty(latStr) || String.IsNullOrEmpty(lngStr)))
@@ -632,6 +666,36 @@ namespace RDEManager
                 coordErrors.Add("lat and long must both contain values or both be empty");
             }
 
+            //they might both be empty
+            if(String.IsNullOrEmpty(latStr) && String.IsNullOrEmpty(lngStr))
+            {
+                if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit))
+                {
+                    return "ns, ew, and llunit should be empty if no coords captured";
+                }
+                else
+                {
+                    return ""; //no further checking needed
+                }
+            }
+
+            //one is empty and the other not
+            if (String.IsNullOrEmpty(latStr) || String.IsNullOrEmpty(lngStr))
+            {
+
+                string msg = "One of lat or long has a value and the other not. It must be both or neither";
+                if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit))
+                {
+                    return $"{msg}{Environment.NewLine}ns, ew, and llunit should be empty if no coords captured";
+                }
+                else
+                {
+                    return msg;
+                }
+
+            }
+
+            //silent else
             //lat and lng must be numbers represented as strings
             //this gets complicated because we can't carry on if this fails
             double lat;
@@ -658,6 +722,31 @@ namespace RDEManager
                 carryOn = false;
             }
 
+            //check the other fields while we're here
+            //unit must be one of DD, DM or DMS
+            string[] validUnits = { "DD", "DMS", "DM" };
+
+            if (!validUnits.Contains(unit))
+            {
+                otherFieldErrors.Add("llunit not valid");
+                carryOn = false;
+            }
+
+            string[] validNS = { "N", "S" };
+            string[] validEW = { "E", "W" };
+
+            //we can carry on despite invalid ns and we values so no need to change carryOn here
+            if (!validNS.Contains(ns))
+            {
+                otherFieldErrors.Add("ns not valid");
+            }
+
+            if (!validEW.Contains(ew))
+            {
+                otherFieldErrors.Add("ew not valid");
+            }
+
+            //now we can check the actual coordinates
             if (carryOn)
             {
                 //this will work now
@@ -666,17 +755,24 @@ namespace RDEManager
 
 
                 //one can't be zero and the other a number
-                if (Math.Abs(lat) < 0.0000001 || Math.Abs(lng) < 0.0000001)
+                if (lat == 0 || lng == 0)
                 {
-                    if (Math.Abs(lat) < 0.0000001 && Math.Abs(lng) < 0.0000001) //if they are both zeros, then not captured, ignore everything else. 
+                    if (lat + lng == 0) //if they are both zeros, then not captured, check the other fields are not captured
                     {
-                        return "";
+                        if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit))
+                        {
+                            return "ns, ew, and llunit should be empty if no coords captured";
+                        }
                     }
                     else
                     {
-                        coordErrors.Add("lat and long cannot be zero if captured");
+                        coordErrors.Add("one of lat or long is missing");
+                        coordErrors.AddRange(otherFieldErrors);
+                        return String.Join("; ", coordErrors.ToArray());
                     }
                 }
+
+                //silent else
 
                 //we can ingore DD here as we just need the degrees part
                 char[] separators = { '.' };
@@ -754,26 +850,8 @@ namespace RDEManager
 
             }
 
-            //unit must be one of DD, DM or DMS
-            string[] validUnits = { "DD", "DMS", "DM" };
 
-            if (!validUnits.Contains(unit))
-            {
-                coordErrors.Add("llunit not valid");
-            }
-
-            string[] validNS = { "N", "S" };
-            string[] validEW = { "E", "W" };
-
-            if (!validNS.Contains(ns))
-            {
-                coordErrors.Add("ns not valid");
-            }
-
-            if (!validEW.Contains(ew))
-            {
-                coordErrors.Add("ew not valid");
-            }
+            coordErrors.AddRange(otherFieldErrors);
 
             return String.Join("; ", coordErrors.ToArray());
 
@@ -1019,6 +1097,11 @@ namespace RDEManager
         public static string getAgentNamesNotInList(string agentsString, DataTable masterAgents)
         {
 
+            if(agentsString == "") //sometimes we get this
+            {
+                return "";
+            }
+
             var masterAgentsEnum = masterAgents.AsEnumerable();
 
             //split the agents and remove periods from initials
@@ -1029,12 +1112,47 @@ namespace RDEManager
             //create a list of agents
             foreach(string agent in agentsStringList)
             {
+
+                int matchingAgentCount = 0;
+                string initials = "";
+
+                //initials only
+                if (StringIsAllUpper(agent))
+                {
+
+                    initials = agent.Replace(".", "").Replace(" ", "").Trim(); //replace periods and whitespace
+                    matchingAgentCount = masterAgentsEnum.Where(row => row["surname"].ToString().Trim() == "" && row["initials"].ToString().Trim() == agent).Count();
+
+                    if (matchingAgentCount < 1) //we must have at least one
+                    {
+                        agentsNotMatched.Add(agent);
+                    }
+
+                    continue;
+
+                }
+                
+                //surname only (we assume a comma to separate
+                if (!agent.Contains(","))
+                {
+                    matchingAgentCount = masterAgentsEnum.Where(row => row["surname"].ToString().Trim() == agent && row["initials"].ToString().Trim() == "").Count();
+                    if (matchingAgentCount < 1) //we must have at least one
+                    {
+                        agentsNotMatched.Add(agent);
+                    }
+
+                    continue;
+                }
+
+                //both
+
                 char[] sep = { ',' };
                 string[] parts = agent.Split(sep);
                 string lastName = parts[0].Trim();
-                string initials = parts[1].Replace(".", "").Replace(" ", "").Trim(); //replace periods and whitespace
 
-                int matchingAgentCount = masterAgentsEnum.Where(row => row["surname"].ToString().Trim() == lastName && row["initials"].ToString().Trim() == initials).Count();
+                initials = parts[1].Replace(".", "").Replace(" ", "").Trim(); //replace periods and whitespace
+
+                matchingAgentCount = masterAgentsEnum.Where(row => row["surname"].ToString().Trim() == lastName && row["initials"].ToString().Trim() == initials).Count();
 
                 if (matchingAgentCount < 1) //we must have at least one
                 {
@@ -1144,6 +1262,17 @@ namespace RDEManager
             }
 
             return day > 0 && day <= maxDays;
+        }
+
+        //helpers
+        private static bool StringIsAllUpper(string input)
+        {
+            for (int i = 0; i < input.Length; i++)
+            {
+                if (Char.IsLetter(input[i]) && !Char.IsUpper(input[i]))
+                    return false;
+            }
+            return true;
         }
     }
 }

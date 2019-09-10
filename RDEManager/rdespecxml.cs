@@ -22,7 +22,7 @@ namespace RDEManager
             XmlSerializer serializer = new XmlSerializer(typeof(XMLSpecimenList));
 
             //we need to add the list wrapper
-            rdespec = $"<SpecimenList>{rdespec}</SpecimenList>";
+            rdespec = $"<SpecimenList>{rdespec}</SpecimenList>".Replace("&", "&amp;");
 
             using (TextReader reader = new StringReader(rdespec))
             {
@@ -41,7 +41,7 @@ namespace RDEManager
                     serializer.Serialize(writer, this);
                     string xml = sww.ToString(); // Your XML
 
-                    xml = xml.Replace("<SpecimenList>", "").Replace("</SpecimenList>", "");
+                    xml = xml.Replace("<SpecimenList>", "").Replace("</SpecimenList>", "").Replace("&amp;", "&");
 
                     return xml;
 

@@ -69,6 +69,13 @@
             this.btnCheckQDSCountry = new System.Windows.Forms.Button();
             this.btnNextRowWithErrors = new System.Windows.Forms.Button();
             this.btnSaveChanges = new System.Windows.Forms.Button();
+            this.lblErrorRowIndex = new System.Windows.Forms.Label();
+            this.lblPeople = new System.Windows.Forms.Label();
+            this.lblQDSCountries = new System.Windows.Forms.Label();
+            this.chkAddOrganization = new System.Windows.Forms.CheckBox();
+            this.txtAddWho = new System.Windows.Forms.TextBox();
+            this.btnCheckTaxa = new System.Windows.Forms.Button();
+            this.btnClearRecords = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.dgvRecordsView)).BeginInit();
             this.gbCollNumberOptions.SuspendLayout();
             this.SuspendLayout();
@@ -104,7 +111,7 @@
             // btnCheckDuplicates
             // 
             this.btnCheckDuplicates.Enabled = false;
-            this.btnCheckDuplicates.Location = new System.Drawing.Point(17, 385);
+            this.btnCheckDuplicates.Location = new System.Drawing.Point(17, 366);
             this.btnCheckDuplicates.Name = "btnCheckDuplicates";
             this.btnCheckDuplicates.Size = new System.Drawing.Size(204, 29);
             this.btnCheckDuplicates.TabIndex = 11;
@@ -198,9 +205,8 @@
             this.lblNoTaxa.AutoSize = true;
             this.lblNoTaxa.Location = new System.Drawing.Point(343, 147);
             this.lblNoTaxa.Name = "lblNoTaxa";
-            this.lblNoTaxa.Size = new System.Drawing.Size(119, 13);
+            this.lblNoTaxa.Size = new System.Drawing.Size(0, 13);
             this.lblNoTaxa.TabIndex = 25;
-            this.lblNoTaxa.Text = "No. of species records: ";
             // 
             // txtQDSCountriesFile
             // 
@@ -263,7 +269,7 @@
             // dgvRecordsView
             // 
             this.dgvRecordsView.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvRecordsView.Location = new System.Drawing.Point(20, 486);
+            this.dgvRecordsView.Location = new System.Drawing.Point(20, 510);
             this.dgvRecordsView.Name = "dgvRecordsView";
             this.dgvRecordsView.Size = new System.Drawing.Size(1421, 171);
             this.dgvRecordsView.TabIndex = 33;
@@ -273,7 +279,7 @@
             // btnNextDuplicate
             // 
             this.btnNextDuplicate.Enabled = false;
-            this.btnNextDuplicate.Location = new System.Drawing.Point(108, 453);
+            this.btnNextDuplicate.Location = new System.Drawing.Point(108, 477);
             this.btnNextDuplicate.Name = "btnNextDuplicate";
             this.btnNextDuplicate.Size = new System.Drawing.Size(204, 27);
             this.btnNextDuplicate.TabIndex = 34;
@@ -284,7 +290,7 @@
             // lblDupsCount
             // 
             this.lblDupsCount.AutoSize = true;
-            this.lblDupsCount.Location = new System.Drawing.Point(17, 460);
+            this.lblDupsCount.Location = new System.Drawing.Point(17, 484);
             this.lblDupsCount.Name = "lblDupsCount";
             this.lblDupsCount.Size = new System.Drawing.Size(58, 13);
             this.lblDupsCount.TabIndex = 35;
@@ -292,7 +298,7 @@
             // 
             // btnTestSomething
             // 
-            this.btnTestSomething.Location = new System.Drawing.Point(954, 452);
+            this.btnTestSomething.Location = new System.Drawing.Point(954, 476);
             this.btnTestSomething.Name = "btnTestSomething";
             this.btnTestSomething.Size = new System.Drawing.Size(204, 29);
             this.btnTestSomething.TabIndex = 36;
@@ -329,7 +335,7 @@
             // btnDeleteRows
             // 
             this.btnDeleteRows.Enabled = false;
-            this.btnDeleteRows.Location = new System.Drawing.Point(528, 453);
+            this.btnDeleteRows.Location = new System.Drawing.Point(528, 477);
             this.btnDeleteRows.Name = "btnDeleteRows";
             this.btnDeleteRows.Size = new System.Drawing.Size(204, 27);
             this.btnDeleteRows.TabIndex = 40;
@@ -340,7 +346,7 @@
             // btnMergeDups
             // 
             this.btnMergeDups.Enabled = false;
-            this.btnMergeDups.Location = new System.Drawing.Point(318, 453);
+            this.btnMergeDups.Location = new System.Drawing.Point(318, 477);
             this.btnMergeDups.Name = "btnMergeDups";
             this.btnMergeDups.Size = new System.Drawing.Size(204, 27);
             this.btnMergeDups.TabIndex = 41;
@@ -350,12 +356,11 @@
             // 
             // btnCleanRecords
             // 
-            this.btnCleanRecords.Enabled = false;
             this.btnCleanRecords.Location = new System.Drawing.Point(243, 331);
             this.btnCleanRecords.Name = "btnCleanRecords";
             this.btnCleanRecords.Size = new System.Drawing.Size(204, 29);
             this.btnCleanRecords.TabIndex = 42;
-            this.btnCleanRecords.Text = "Clean records";
+            this.btnCleanRecords.Text = "Update missing fields";
             this.btnCleanRecords.UseVisualStyleBackColor = true;
             this.btnCleanRecords.Click += new System.EventHandler(this.btnCleanRecords_Click);
             // 
@@ -453,7 +458,7 @@
             this.btnNextRowWithErrors.Name = "btnNextRowWithErrors";
             this.btnNextRowWithErrors.Size = new System.Drawing.Size(204, 29);
             this.btnNextRowWithErrors.TabIndex = 49;
-            this.btnNextRowWithErrors.Text = "Next...";
+            this.btnNextRowWithErrors.Text = "Next error...";
             this.btnNextRowWithErrors.UseVisualStyleBackColor = true;
             this.btnNextRowWithErrors.Click += new System.EventHandler(this.btnNextRowWithErrors_Click);
             // 
@@ -461,18 +466,90 @@
             // 
             this.btnSaveChanges.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnSaveChanges.BackgroundImage")));
             this.btnSaveChanges.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.btnSaveChanges.Location = new System.Drawing.Point(1353, 666);
+            this.btnSaveChanges.Location = new System.Drawing.Point(1353, 690);
             this.btnSaveChanges.Name = "btnSaveChanges";
             this.btnSaveChanges.Size = new System.Drawing.Size(88, 70);
             this.btnSaveChanges.TabIndex = 50;
             this.btnSaveChanges.UseVisualStyleBackColor = true;
             this.btnSaveChanges.Click += new System.EventHandler(this.btnSaveChanges_Click);
             // 
+            // lblErrorRowIndex
+            // 
+            this.lblErrorRowIndex.AutoSize = true;
+            this.lblErrorRowIndex.Location = new System.Drawing.Point(780, 408);
+            this.lblErrorRowIndex.Name = "lblErrorRowIndex";
+            this.lblErrorRowIndex.Size = new System.Drawing.Size(0, 13);
+            this.lblErrorRowIndex.TabIndex = 51;
+            this.lblErrorRowIndex.Visible = false;
+            // 
+            // lblPeople
+            // 
+            this.lblPeople.AutoSize = true;
+            this.lblPeople.Location = new System.Drawing.Point(343, 266);
+            this.lblPeople.Name = "lblPeople";
+            this.lblPeople.Size = new System.Drawing.Size(0, 13);
+            this.lblPeople.TabIndex = 52;
+            // 
+            // lblQDSCountries
+            // 
+            this.lblQDSCountries.AutoSize = true;
+            this.lblQDSCountries.Location = new System.Drawing.Point(334, 206);
+            this.lblQDSCountries.Name = "lblQDSCountries";
+            this.lblQDSCountries.Size = new System.Drawing.Size(0, 13);
+            this.lblQDSCountries.TabIndex = 53;
+            // 
+            // chkAddOrganization
+            // 
+            this.chkAddOrganization.AutoSize = true;
+            this.chkAddOrganization.Location = new System.Drawing.Point(244, 438);
+            this.chkAddOrganization.Name = "chkAddOrganization";
+            this.chkAddOrganization.Size = new System.Drawing.Size(89, 17);
+            this.chkAddOrganization.TabIndex = 54;
+            this.chkAddOrganization.Text = "Add to Who: ";
+            this.chkAddOrganization.UseVisualStyleBackColor = true;
+            // 
+            // txtAddWho
+            // 
+            this.txtAddWho.Location = new System.Drawing.Point(330, 436);
+            this.txtAddWho.Name = "txtAddWho";
+            this.txtAddWho.Size = new System.Drawing.Size(112, 20);
+            this.txtAddWho.TabIndex = 55;
+            this.txtAddWho.Text = "NSCF";
+            // 
+            // btnCheckTaxa
+            // 
+            this.btnCheckTaxa.Enabled = false;
+            this.btnCheckTaxa.Location = new System.Drawing.Point(17, 400);
+            this.btnCheckTaxa.Name = "btnCheckTaxa";
+            this.btnCheckTaxa.Size = new System.Drawing.Size(204, 29);
+            this.btnCheckTaxa.TabIndex = 56;
+            this.btnCheckTaxa.Text = "Check taxa";
+            this.btnCheckTaxa.UseVisualStyleBackColor = true;
+            this.btnCheckTaxa.Click += new System.EventHandler(this.btnCheckTaxa_Click);
+            // 
+            // btnClearRecords
+            // 
+            this.btnClearRecords.Enabled = false;
+            this.btnClearRecords.Location = new System.Drawing.Point(672, 18);
+            this.btnClearRecords.Name = "btnClearRecords";
+            this.btnClearRecords.Size = new System.Drawing.Size(79, 29);
+            this.btnClearRecords.TabIndex = 57;
+            this.btnClearRecords.Text = "Clear";
+            this.btnClearRecords.UseVisualStyleBackColor = true;
+            this.btnClearRecords.Click += new System.EventHandler(this.btnClearRecords_Click);
+            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1472, 748);
+            this.ClientSize = new System.Drawing.Size(1472, 761);
+            this.Controls.Add(this.btnClearRecords);
+            this.Controls.Add(this.btnCheckTaxa);
+            this.Controls.Add(this.txtAddWho);
+            this.Controls.Add(this.chkAddOrganization);
+            this.Controls.Add(this.lblQDSCountries);
+            this.Controls.Add(this.lblPeople);
+            this.Controls.Add(this.lblErrorRowIndex);
             this.Controls.Add(this.btnSaveChanges);
             this.Controls.Add(this.btnNextRowWithErrors);
             this.Controls.Add(this.btnCheckQDSCountry);
@@ -561,6 +638,13 @@
         private System.Windows.Forms.Button btnCheckQDSCountry;
         private System.Windows.Forms.Button btnNextRowWithErrors;
         private System.Windows.Forms.Button btnSaveChanges;
+        private System.Windows.Forms.Label lblErrorRowIndex;
+        private System.Windows.Forms.Label lblPeople;
+        private System.Windows.Forms.Label lblQDSCountries;
+        private System.Windows.Forms.CheckBox chkAddOrganization;
+        private System.Windows.Forms.TextBox txtAddWho;
+        private System.Windows.Forms.Button btnCheckTaxa;
+        private System.Windows.Forms.Button btnClearRecords;
     }
 }
 

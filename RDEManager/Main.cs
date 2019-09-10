@@ -21,10 +21,6 @@ namespace RDEManager
         {
             InitializeComponent();
 
-            this.viewRecordsBinding = new BindingSource();
-
-            this.dgvRecordsView.DataSource = this.viewRecordsBinding;
-
             this.dupsSearched = false;
 
             this.CountryCodes = new CountryCodes();
@@ -45,7 +41,7 @@ namespace RDEManager
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    
+
                     this.workingDir = Path.GetDirectoryName(openFileDialog.FileNames[0]);
 
                     string[] fileParts = new string[openFileDialog.FileNames.Length]; //start empty
@@ -60,7 +56,7 @@ namespace RDEManager
 
                 }
             }
-            
+
         }
 
         private void addFile_Click(object sender, EventArgs e)
@@ -68,19 +64,39 @@ namespace RDEManager
             this.records = new DataTable();
 
             string[] stringSeparators = new string[] { " | " };
-            string[] fileNames = txtChooseDBF.Text.Split(stringSeparators, StringSplitOptions.None);          
+            string[] fileNames = txtChooseDBF.Text.Split(stringSeparators, StringSplitOptions.None);
 
             for (int i = 0; i < fileNames.Length; i++)
             {
                 addDBFRecords(fileNames[i]);
             }
 
+            btnClearRecords.Enabled = true;
             btnChooseImageFolder.Enabled = true;
             btnChooseTaxonBackbone.Enabled = true;
             btnChooseQDSCountries.Enabled = true;
             btnChoosePeople.Enabled = true;
             btnCheckDuplicates.Enabled = true;
 
+        }
+
+        private void btnClearRecords_Click(object sender, EventArgs e)
+        {
+
+            string confirm = "Are you sure you want to clear all records? Any unsaved changes will be lost.";
+            var confirmResult = MessageBox.Show(confirm,
+                                     "Confirm Clear Records!!",
+                                     MessageBoxButtons.YesNo);
+            if (confirmResult == DialogResult.Yes)
+            {
+                this.records.Clear();
+                lblNumberOfRecords.Text = "Number of records: ";
+                btnClearRecords.Enabled = false;
+            }
+            else
+            {
+                return;
+            }
         }
 
         private void btnChooseImageFolder_Click(object sender, EventArgs e)
@@ -118,20 +134,21 @@ namespace RDEManager
 
                     string taxonFile = Path.GetFileName(openFileDialog.FileName);
                     string taxonDirectory = Path.GetDirectoryName(openFileDialog.FileName);
-                    
+
                     try
                     {
-                        readDBFTable(taxonDirectory, taxonFile, this.taxa);                      
+                        readDBFTable(taxonDirectory, taxonFile, this.taxa);
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         MessageBox.Show("Error reading taxon backbone file: " + ex.Message);
                         return;
                     }
 
                     MessageBox.Show("Taxon file successfully read");
+                    btnCheckTaxa.Enabled = true;
                     txtTaxonBackbone.Text = taxonFile;
-                    lblNoTaxa.Text += $" {this.taxa.Rows.Count}";
+                    lblNoTaxa.Text = $"No. of taxon records:  {this.taxa.Rows.Count}";
 
                 }
             }
@@ -155,7 +172,7 @@ namespace RDEManager
 
                     List<CountryQDS> QDSPerCountryCode = new List<CountryQDS>();
                     var engine = new FileHelperEngine<CountryQDS>();
-                    
+
                     //read it all out of the CSV and then convert to the dictionary
                     try
                     {
@@ -214,6 +231,7 @@ namespace RDEManager
                     }
 
                     MessageBox.Show("QDSCountries file successfully read");
+                    this.lblQDSCountries.Text = $"No. of countries with QDS lists: {this.CountryQDSs.Count}";
                     txtQDSCountriesFile.Text = QDSCountriesFile;
                     return;
 
@@ -239,7 +257,7 @@ namespace RDEManager
 
                     try
                     {
-                        readDBFTable(peopleDirectory, peopleFile, this.taxa);
+                        readDBFTable(peopleDirectory, peopleFile, this.people);
                     }
                     catch (Exception ex)
                     {
@@ -249,6 +267,7 @@ namespace RDEManager
 
                     MessageBox.Show("People table successfully imported");
                     txtPeopleTable.Text = peopleFile;
+                    this.lblPeople.Text = $"No. of agent records: {this.people.Rows.Count}";
                     this.btnCleanRecords.Enabled = true;
 
                 }
@@ -302,7 +321,7 @@ namespace RDEManager
                     {
                         notCaptured.Sort();
                         string codesNotCaptured = String.Join("; ", notCaptured.ToArray());
-                        
+
                         rtbReportErrors.Text += $"{notCaptured.Count} image files that do not match captured barcodes. See the log.{Environment.NewLine}";
                         rtbReportErrors.Text += codesNotCaptured + Environment.NewLine + Environment.NewLine;
                         string logNotCapturedMsg = $"Image file names without matching barcode values in RDE files ({notCaptured.Count}): {codesNotCaptured}";
@@ -351,9 +370,21 @@ namespace RDEManager
 
             MessageBox.Show($"{duplicatesRemoved} identical duplicate records removed");
 
-            this.btnNextDuplicate.Enabled = true;
-
-            this.btnCheckDuplicates.Enabled = false;
+            //set the bndings for the grid view
+            if (this.botRecDuplicates.Count > 0)
+            {
+                MessageBox.Show($"{this.botRecDuplicates.Count} duplicate records need to be processed");
+                this.showNextDuplicate();
+                this.btnNextDuplicate.Enabled = true;
+                this.btnMergeDups.Enabled = true;
+                this.btnDeleteRows.Enabled = true;
+                this.btnCheckDuplicates.Enabled = false;
+            }
+            else
+            {
+                MessageBox.Show($"No duplicate records need to be processed. Proceed to updates.");
+                this.btnCleanRecords.Enabled = true;
+            }
 
         }
 
@@ -362,29 +393,7 @@ namespace RDEManager
 
             if (this.botRecDuplicatesIndex < this.botRecDuplicates.Count)
             {
-                BotanicalRecordDuplicateTracker next = this.botRecDuplicates[this.botRecDuplicatesIndex];
-
-                //make the search string
-                string INSearch = "";
-                foreach (string dupBarcode in next.dupBarcodes)
-                {
-                    string quoted = $"'{dupBarcode}'";
-                    INSearch += quoted + ", ";
-                }
-                INSearch = INSearch.Substring(0, INSearch.Length - 2); //remove the last comma
-
-                string expression = $"barcode IN ({INSearch})";
-
-                this.viewRecordsBinding.Filter = expression;
-
-                if(this.dgvRecordsView.DataSource == null)
-                {
-                    this.dgvRecordsView.DataSource = viewRecordsBinding;
-                }
-
-                this.botRecDuplicatesIndex++;
-
-                this.lblDupIndexCount.Text = $"{this.botRecDuplicatesIndex} of {this.botRecDuplicates.Count} duplicates";
+                this.showNextDuplicate();
             }
             else
             {
@@ -398,8 +407,36 @@ namespace RDEManager
 
                 this.btnCleanRecords.Enabled = true;
 
-                MessageBox.Show("All duplicates have been processed.");
-                
+                MessageBox.Show("All duplicates have been processed. Proceed to updates.");
+
+            }
+        }
+
+        private void btnCheckTaxa_Click(object sender, EventArgs e)
+        {
+            if (this.taxa == null || this.taxa.Rows.Count == 0)
+            {
+                MessageBox.Show("No taxon table available to check taxa");
+                return;
+            }
+            else
+            {
+                Dictionary<string, List<string>> taxaNotFound = RecordErrorFinder.getTaxonNamesNotInBackbone(this.records, this.taxa);
+
+                if (taxaNotFound.Count > 0)
+                {
+                    string printErr = "";
+                    foreach(string key in taxaNotFound.Keys)
+                    {
+                        printErr += $"{key}: {String.Join("; ",taxaNotFound[key].ToArray())} {Environment.NewLine}";
+                    }
+                    rtbReportErrors.Clear();
+                    rtbReportErrors.Text = printErr;
+                }
+                else
+                {
+                    MessageBox.Show("all taxa are correct");
+                }
             }
         }
 
@@ -410,7 +447,11 @@ namespace RDEManager
             if (this.findNextRowWithErrors(0))
             {
                 this.btnNextRowWithErrors.Enabled = true;
-                this.viewRecordsBinding.DataSource = this.records.Rows[this.errorRecordIndex];
+
+                this.showNextError();
+
+                //stop here
+                int i = 0;
             }
             else
             {
@@ -431,11 +472,17 @@ namespace RDEManager
             }
             else
             {
-                bool errorFound = this.findNextRowWithErrors(this.errorRecordIndex + 1);
-                if (!errorFound)
+                if (this.findNextRowWithErrors(this.errorRecordIndex + 1))
                 {
-                    MessageBox.Show("no more errors found");
+                    this.showNextError();
+                }
+                else
+                {
+                    this.rtbReportErrors.Clear();
+                    this.btnNextRowWithErrors.Enabled = false;
                     this.btnAddQDSFromCoords.Enabled = true;
+                    this.lblErrorRowIndex.Visible = false;
+                    MessageBox.Show("no more errors found");
                 }
             }
         }
@@ -482,11 +529,11 @@ namespace RDEManager
                     if (!String.IsNullOrEmpty(masterRDEspec))
                     {
                         XMLSpecimenList rdespeclist = RecordCleaner.rdeSpecToList(masterRDEspec);
-                        
+
                         //go through each duplicate record, check if it's already in the rdespec, if not, add it
-                        foreach(string dupBarcode in dupInfo.dupBarcodes)
+                        foreach (string dupBarcode in dupInfo.dupBarcodes)
                         {
-                            
+
                             int count = rdespeclist.Specimens.Where(s => s.barcode == dupBarcode).Count();
                             if (count == 0) //add it
                             {
@@ -538,7 +585,7 @@ namespace RDEManager
         {
             if (this.dgvRecordsView.SelectedRows.Count > 1) //many selected records
             {
-                if (MessageBox.Show($"Are you sure you want to delete {this.dgvRecordsView.SelectedRows.Count} records?", 
+                if (MessageBox.Show($"Are you sure you want to delete {this.dgvRecordsView.SelectedRows.Count} records?",
                     "Confirm delete", MessageBoxButtons.YesNo) == System.Windows.Forms.DialogResult.Yes)
                 {
                     foreach (DataGridViewRow item in this.dgvRecordsView.SelectedRows)
@@ -562,6 +609,22 @@ namespace RDEManager
 
         private void btnCleanRecords_Click(object sender, EventArgs e)
         {
+            bool updateWho = false;
+            if (chkAddOrganization.Checked)
+            {
+                if (String.IsNullOrEmpty(txtAddWho.Text))
+                {
+                    MessageBox.Show("A value is required to update Who");
+                    return;
+                }
+                else
+                {
+                    updateWho = true;
+                }
+            }
+
+            List<string> updateReport = new List<string>();
+
             int collNumUpdates = 0;
             if (rbNumberFromBarcode.Checked)
             {
@@ -574,23 +637,56 @@ namespace RDEManager
 
             if (collNumUpdates > 0)
             {
-                rtbReportErrors.Text += $"Collector number updated for {collNumUpdates} records{Environment.NewLine}";
+                updateReport.Add($"Collector number updated for {collNumUpdates} records{Environment.NewLine}");
             }
 
             int dupsUpdated = RecordCleaner.updateDups(this.records);
 
             if (dupsUpdated > 0)
             {
-                rtbReportErrors.Text += $"Dups updated for {dupsUpdated} records{Environment.NewLine}";
+                updateReport.Add($"Dups updated for {dupsUpdated} records{Environment.NewLine}");
             }
 
-            RecordCleaner.updateWHO(this.records);
+            int countriesUpdated = RecordCleaner.addCountries(this.records);
+            if (countriesUpdated > 0)
+            {
+                updateReport.Add($"Countries added for {countriesUpdated} records{Environment.NewLine}");
+            }
 
-            RecordCleaner.addAccessionNumbers(this.records);
+            if(updateWho)
+            {
+                RecordCleaner.updateWHO(this.records, txtAddWho.Text);
+            }
 
-            RecordCleaner.clearZeroCoordinates(this.records);
+            
+            int updatedAccessionNumbers = RecordCleaner.addAccessionNumbers(this.records);
+            if (updatedAccessionNumbers > 0)
+            {
+                updateReport.Add($"Accession numbers updated for {updatedAccessionNumbers} records{Environment.NewLine}");
+            }
 
-            MessageBox.Show("Record cleaning complete");
+            int updatedCoordinates = RecordCleaner.clearZeroCoordinates(this.records);
+            if (updatedCoordinates > 0)
+            {
+                updateReport.Add($"Zero coordinates cleared for {updatedCoordinates} records{Environment.NewLine}");
+            }
+
+            int updatedImagePaths = RecordCleaner.updateImageList(this.records, this.imagePaths);
+            if (updatedImagePaths > 0)
+            {
+                updateReport.Add($"Image list updated for {updatedImagePaths} records{Environment.NewLine}");
+            }
+
+            //some formatting and the last message
+            updateReport.Add(Environment.NewLine);
+            updateReport.Add(Environment.NewLine);
+            updateReport.Add("Record cleaning complete. Proceed to error checking.");
+
+            string message = String.Join("", updateReport.ToArray());
+
+            MessageBox.Show(message);
+
+            this.btnCleanRecords.Enabled = false;
             this.btnFindErrors.Enabled = true;
 
         }
@@ -599,7 +695,7 @@ namespace RDEManager
         {
             rtbReportErrors.Clear();
             int qdsUpdates = RecordCleaner.addQDSFromCoordinates(this.records);
-            if(qdsUpdates > 0)
+            if (qdsUpdates > 0)
             {
                 rtbReportErrors.Text += $"QDS updated for {qdsUpdates} records";
             }
@@ -685,7 +781,7 @@ namespace RDEManager
                     OleDbCommand cm = new OleDbCommand($"select top 5 * from {tableName} order by barcode", connection);
                     OleDbDataReader myReader = cm.ExecuteReader();
                     DataTable schemaTable = myReader.GetSchemaTable(); ;
-                    
+
 
                     //clear all records
                     OleDbCommand deleteCmd = new OleDbCommand(deleteSQL, connection);
@@ -694,7 +790,7 @@ namespace RDEManager
                         int deletedRecordCount = deleteCmd.ExecuteNonQuery();
                         //MessageBox.Show($"Records deleted: {deletedRecordCount}");
                     }
-                    catch(Exception ex)
+                    catch (Exception ex)
                     {
                         MessageBox.Show($"Error with saving file. Empty template failed with message: {ex.Message}");
                         return;
@@ -705,7 +801,7 @@ namespace RDEManager
                     addRecordCmd.Connection = connection;
 
                     List<string> columnNames = new List<string>();
-                    foreach(DataColumn col in this.records.Columns)
+                    foreach (DataColumn col in this.records.Columns)
                     {
                         columnNames.Add(col.ColumnName.Trim());
                     }
@@ -729,7 +825,7 @@ namespace RDEManager
                     {
                         counter++;
                         insertCommand.Parameters.Clear(); // clean everything out
-                        
+
                         foreach (string colName in columnNames)
                         {
                             //get the type for this column
@@ -751,7 +847,7 @@ namespace RDEManager
                                     insertCommand.Parameters.Add(colName, OleColType).Value = row[colName].ToString().Trim();
                                 }
                             }
-                            else if(coltype == "System.Decimal")
+                            else if (coltype == "System.Decimal")
                             {
                                 OleColType = OleDbType.Decimal;
                                 string val = row[colName].ToString().Trim();
@@ -763,7 +859,7 @@ namespace RDEManager
                                 {
                                     insertCommand.Parameters.Add(colName, OleColType).Value = decimal.Parse(val);
                                 }
-                                
+
                             }
                             else if (coltype == "System.Boolean")
                             {
@@ -812,7 +908,7 @@ namespace RDEManager
                     //if we get here, it worked!!
                     connection.Close();
                     MessageBox.Show("Records successfully saved");
-                    
+
                 }
             }
         }
@@ -843,11 +939,11 @@ namespace RDEManager
                 {
                     connection.Open();
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     throw new Exception("Error with database connection: " + ex.Message);
                 }
-                
+
 
                 if (connection.State == ConnectionState.Open)
                 {
@@ -866,7 +962,7 @@ namespace RDEManager
                     return;
 
                 }
-                
+
             }
         }
 
@@ -879,13 +975,13 @@ namespace RDEManager
                 readDBFTable(folderName, fileName, this.records);
                 lblNumberOfRecords.Text = "Number of records: " + this.records.Rows.Count;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 MessageBox.Show($"Error reading records for {fileName}: {ex.Message}");
             }
 
         }
-        
+
         private List<RDETrackingRecord> getGoogleSheetData()
         {
             GoogleSheetReader gsr = new GoogleSheetReader();
@@ -927,7 +1023,7 @@ namespace RDEManager
 
                 string root = barcode.Split(seps)[0];
                 //sometimes we have a, b, etc at the end
-                if(char.IsLetter(root[root.Length - 1]))
+                if (char.IsLetter(root[root.Length - 1]))
                 {
                     root = root.Substring(0, root.Length - 1);
                 }
@@ -975,9 +1071,30 @@ namespace RDEManager
 
                     DataRow row = this.records.Rows[i];
 
+                    if (!RecordErrorFinder.barcodeHasValue(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.noBarcode);
+                    }
+
                     if (!RecordErrorFinder.numberIsAnIntegerOrSN(row))
                     {
                         this.rowErrors.Add(RecordErrors.collNumberError);
+                    }
+
+                    if (!RecordErrorFinder.higherTaxaAllPresent(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.higherTaxaMissing);
+                    }
+
+                    string ranksNotInBackbone = RecordErrorFinder.getRanksNotInBackbone(row, this.taxa);
+                    if (!String.IsNullOrEmpty(ranksNotInBackbone))
+                    {
+                        this.rowErrors.Add($"{RecordErrors.ranksNotInBackbone}: {ranksNotInBackbone}");
+                    }
+
+                    if (!RecordErrorFinder.isDeterminerInList(row, this.people))
+                    {
+                        this.rowErrors.Add("The determiner is not in the master list");
                     }
 
                     if (!RecordErrorFinder.countryInList(row, this.CountryCodes))
@@ -998,17 +1115,6 @@ namespace RDEManager
                     if (!RecordErrorFinder.localityIsEmpty(row))
                     {
                         this.rowErrors.Add(RecordErrors.localityEmpty);
-                    }
-
-                    if (!RecordErrorFinder.higherTaxaAllPresent(row))
-                    {
-                        this.rowErrors.Add(RecordErrors.higherTaxaMissing);
-                    }
-
-                    string ranksNotInBackbone = RecordErrorFinder.getRanksNotInBackbone(row, this.taxa);
-                    if (!String.IsNullOrEmpty(ranksNotInBackbone))
-                    {
-                        this.rowErrors.Add($"{RecordErrors.ranksNotInBackbone}: {ranksNotInBackbone}");
                     }
 
                     string coordsErrors = RecordErrorFinder.getCoordErrors(row);
@@ -1040,14 +1146,8 @@ namespace RDEManager
                     string collectorsNotIn = RecordErrorFinder.getCollectorsNotInList(row, this.people);
                     if (!String.IsNullOrEmpty(collectorsNotIn))
                     {
-                        this.rowErrors.Add("The following collectors are not in the list: " + collectorsNotIn);
+                        this.rowErrors.Add("The following collectors are not in the master list: " + collectorsNotIn);
                     }
-
-                    if (!RecordErrorFinder.isDeterminerInList(row, this.people))
-                    {
-                        this.rowErrors.Add("The determiner is not in the list");
-                    }
-
 
                     //check if we found errors and break if we did
                     if (this.rowErrors.Count > 0)
@@ -1065,6 +1165,65 @@ namespace RDEManager
                 return false;
             }
 
+        }
+
+        private void showNextDuplicate()
+        {
+            BotanicalRecordDuplicateTracker next = this.botRecDuplicates[this.botRecDuplicatesIndex];
+
+            //make the search string
+            string INSearch = "";
+            foreach (string dupBarcode in next.dupBarcodes)
+            {
+                string quoted = $"'{dupBarcode}'";
+                INSearch += quoted + ", ";
+            }
+            INSearch = INSearch.Substring(0, INSearch.Length - 2); //remove the last comma
+
+            string expression = $"barcode IN ({INSearch})";
+
+            if (this.viewRecordsBinding == null)
+            {
+                this.viewRecordsBinding = new BindingSource();
+                this.viewRecordsBinding.DataSource = this.records;
+            }
+
+            this.viewRecordsBinding.Filter = expression;
+
+            if (this.dgvRecordsView.DataSource == null)
+            {
+                this.dgvRecordsView.DataSource = viewRecordsBinding;
+            }
+
+            this.botRecDuplicatesIndex++;
+
+            this.lblDupIndexCount.Text = $"{this.botRecDuplicatesIndex} of {this.botRecDuplicates.Count} duplicates";
+        }
+
+        private void showNextError()
+        {
+            //show the error list
+            string errors = String.Join(Environment.NewLine + Environment.NewLine, this.rowErrors.ToArray());
+            this.rtbReportErrors.Text = errors;
+
+            //show the record in the datagridview
+            if (this.viewRecordsBinding == null)
+            {
+                this.viewRecordsBinding = new BindingSource();
+            }
+
+            //we need a DataTable for the bindingSource
+            DataTable errorTbl = this.records.AsEnumerable().Where((row, index) => index == errorRecordIndex).CopyToDataTable();
+
+            this.viewRecordsBinding.DataSource = errorTbl;
+
+            if (this.dgvRecordsView.DataSource == null)
+            {
+                this.dgvRecordsView.DataSource = viewRecordsBinding;
+            }
+
+            this.lblErrorRowIndex.Text = $"error in row {this.errorRecordIndex + 1} of {this.records.Rows.Count}";
+            this.lblErrorRowIndex.Visible = true;
         }
 
         private bool findNextCountryQDSError(int startIndex)
@@ -1093,7 +1252,6 @@ namespace RDEManager
                 return true;
             }
         }
-
 
         //PROPERTIES
 

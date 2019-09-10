@@ -8,6 +8,7 @@ namespace RDEManager
 {
     public static class RecordErrors
     {
+        public static string noBarcode = "barcode must be present";
         public static string collNumberError = "collector number must be a number or s.n.";
         public static string countryInvalid = "country may be invalid";
         public static string majorareaEmpty = "majorarea must be empty";

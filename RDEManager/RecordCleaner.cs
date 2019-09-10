@@ -103,8 +103,6 @@ namespace RDEManager
                             }
                         }
 
-                        //TODO add the dups to rdespec
-
                         //we're all done
                         dupsAlreadyChecked.Add(root);
 
@@ -215,7 +213,7 @@ namespace RDEManager
         }
 
         //update [who] to include NSCF
-        public static void updateWHO(DataTable records)
+        public static void updateWHO(DataTable records, string updateString)
         {
             List<string> columnNames = getColumnNames(records);
 
@@ -223,9 +221,9 @@ namespace RDEManager
             {
                 foreach (DataRow row in records.Rows)
                 {
-                    if (!row["who"].ToString().Contains("NSCF"))
+                    if (!row["who"].ToString().Contains(updateString))
                     {
-                        row["who"] = row["who"].ToString().Trim() + " (NSCF)";
+                        row["who"] = row["who"].ToString().Trim() + " (" + updateString + ")";
                     }
                 }
             }
@@ -233,8 +231,9 @@ namespace RDEManager
 
         //add accession numbers
         //also moves old accession numbers to a oldbarcode if they exist and are different
-        public static void addAccessionNumbers(DataTable records)
+        public static int addAccessionNumbers(DataTable records)
         {
+            int updateCounter = 0; 
 
             foreach (DataRow row in records.Rows)
             {
@@ -254,6 +253,7 @@ namespace RDEManager
                     {
                         if(String.IsNullOrEmpty(accession)) { //just put it in
                             row["accession"] = numberString;
+                            updateCounter++;
                         }
                         else //more complicatd
                         {
@@ -272,7 +272,9 @@ namespace RDEManager
                                     string xml = rdespecListToXML(XMLList);
 
                                     row["rdespec"] = xml;
-                                    
+                                    updateCounter++;
+
+
                                 }
                                 else //we already have RDEspec
                                 {
@@ -285,6 +287,7 @@ namespace RDEManager
                                         {
                                             spec.accession = numberString;
                                             spec.oldbarcode = accession;
+                                            updateCounter++;
                                         }
                                         else
                                         {
@@ -292,6 +295,7 @@ namespace RDEManager
                                             {
                                                 spec.oldbarcode = spec.accession;
                                                 spec.accession = numberString;
+                                                updateCounter++;
                                             }
                                         }
                                     }
@@ -301,6 +305,7 @@ namespace RDEManager
 
                             //finally update the RDE row accession field
                             row["accession"] = numberString;
+                            updateCounter++;
 
                         }
                         
@@ -308,11 +313,14 @@ namespace RDEManager
                 }
 
             }
+
+            return updateCounter;
         }
 
         //coordinates that are zero must be emptied. Remember llunit and llres also
-        public static void clearZeroCoordinates(DataTable records)
+        public static int clearZeroCoordinates(DataTable records)
         {
+            int updateCount = 0;
 
             foreach (DataRow row in records.Rows)
             {
@@ -336,6 +344,7 @@ namespace RDEManager
                             row["long"] = DBNull.Value;
                             row["llunit"] = DBNull.Value;
                             row["llres"] = DBNull.Value;
+                            updateCount++;
                         }
 
                     }
@@ -345,13 +354,33 @@ namespace RDEManager
                     }
                 }
             }
+
+            return updateCount;
         }
 
-        public static void updateImageList(DataTable records, List<string> imagePaths)
+        public static int updateImageList(DataTable records, List<string> imagePaths)
         {
+            if (imagePaths == null)
+            {
+                MessageBox.Show("Image paths not available. imagelist field will not be updated.");
+                return 0;
+            }
+
+            int updateCount = 0;
+
             //update the imagelist field to include the image paths
             foreach (DataRow row in records.Rows)
             {
+                string barcode = row["barcode"].ToString().Trim();
+
+                //this should never happen. We assume all records have barcodes.
+                if (string.IsNullOrEmpty(barcode))
+                {
+                    continue;
+                }
+
+                //silent else
+
                 BarcodeParts bcParts = new BarcodeParts(row["barcode"].ToString().Trim());
 
                 string root = bcParts.collectionCode + bcParts.number;
@@ -359,6 +388,7 @@ namespace RDEManager
                 if (paths.Count > 0)
                 {
                     row["imagelist"] = String.Join(Environment.NewLine, paths);
+                    updateCount++;
 
                     //check in rdespec
                     string rdespec = row["rdespec"].ToString().Trim();
@@ -375,6 +405,7 @@ namespace RDEManager
                     }
                 }
             }
+            return updateCount;
         }
 
         //add quarter degree squares from coords - should only happen after coordinates have been cleaned. 
@@ -403,6 +434,49 @@ namespace RDEManager
                 }
             }
             return updates;
+        }
+
+        //add country from locality notes if missing (search for countrynames)
+        public static int addCountries(DataTable records)
+        {
+            int counter = 0;
+
+            string[] countryNamesArr = {
+                "South Africa",
+                "Lesotho",
+                "Swaziland",
+                "Namibia",
+                "Botswana",
+                "Zimbabwe",
+                "Mozambique",
+                "Angola",
+                "Zambia",
+                "Malawi",
+                "Tanzania",
+                "Kenya"
+            };
+
+            List<string> countryNames = countryNamesArr.ToList();
+
+            foreach (DataRow row in records.Rows)
+            {
+                string country = row["country"].ToString();
+                if (!String.IsNullOrEmpty(country))
+                {
+                    string locality = row["localitynotes"].ToString();
+                    for (int i = 0; i < countryNames.Count; i++)
+                    {
+                        if (locality.ToLower().Contains(countryNames[i].ToLower()))
+                        {
+                            row["country"] = countryNames[i];
+                            counter++;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return counter;
         }
 
         //HELPERS
