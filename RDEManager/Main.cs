@@ -268,7 +268,7 @@ namespace RDEManager
                     MessageBox.Show("People table successfully imported");
                     txtPeopleTable.Text = peopleFile;
                     this.lblPeople.Text = $"No. of agent records: {this.people.Rows.Count}";
-                    this.btnCleanRecords.Enabled = true;
+                    this.btnUpdateMissingData.Enabled = true;
 
                 }
             }
@@ -383,7 +383,7 @@ namespace RDEManager
             else
             {
                 MessageBox.Show($"No duplicate records need to be processed. Proceed to updates.");
-                this.btnCleanRecords.Enabled = true;
+                this.btnUpdateMissingData.Enabled = true;
             }
 
         }
@@ -405,7 +405,7 @@ namespace RDEManager
                 this.btnDeleteRows.Enabled = false;
                 this.lblDupIndexCount.Text = "";
 
-                this.btnCleanRecords.Enabled = true;
+                this.btnUpdateMissingData.Enabled = true;
 
                 MessageBox.Show("All duplicates have been processed. Proceed to updates.");
 
@@ -440,31 +440,44 @@ namespace RDEManager
             }
         }
 
-        private void btnFindErrors_Click(object sender, EventArgs e)
+        private void btnFindCaptureErrors_Click(object sender, EventArgs e)
         {
             this.errorsBinding = new BindingList<string>(this.rowErrors);
             //search for the next error if false
-            if (this.findNextRowWithErrors(0))
+            if (this.findNextRowWithCaptureErrors(0))
             {
                 this.btnNextRowWithErrors.Enabled = true;
 
                 this.showNextError();
-
-                //stop here
-                int i = 0;
             }
             else
             {
                 MessageBox.Show("No errors found");
-                this.btnAddQDSFromCoords.Enabled = true;
             }
         }
 
+        private void btnFindQDSCoordErrors_Click(object sender, EventArgs e)
+        {
+            this.errorsBinding = new BindingList<string>(this.rowErrors);
+            //search for the next error if false
+            if (this.findNextRowWithQDSCoordErrors(0))
+            {
+                this.btnNextRowWithErrors.Enabled = true;
+
+                this.showNextError();
+            }
+            else
+            {
+                MessageBox.Show("No errors found");
+            }
+        }
+
+        //TODO this might not be needed anymore
         private void btnNextRowWithErrors_Click(object sender, EventArgs e)
         {
             if (this.checkingQDSErrorsOnly)
             {
-                bool errorFound = this.findNextCountryQDSError(this.errorRecordIndex + 1);
+                bool errorFound = this.findNextRowWithQDSCoordErrors(this.errorRecordIndex + 1);
                 if (!errorFound)
                 {
                     MessageBox.Show("no more errors found");
@@ -472,7 +485,7 @@ namespace RDEManager
             }
             else
             {
-                if (this.findNextRowWithErrors(this.errorRecordIndex + 1))
+                if (this.findNextRowWithQDSCoordErrors(this.errorRecordIndex + 1))
                 {
                     this.showNextError();
                 }
@@ -480,7 +493,6 @@ namespace RDEManager
                 {
                     this.rtbReportErrors.Clear();
                     this.btnNextRowWithErrors.Enabled = false;
-                    this.btnAddQDSFromCoords.Enabled = true;
                     this.lblErrorRowIndex.Visible = false;
                     MessageBox.Show("no more errors found");
                 }
@@ -607,7 +619,7 @@ namespace RDEManager
 
         }
 
-        private void btnCleanRecords_Click(object sender, EventArgs e)
+        private void btnUpdateMissingData_Click(object sender, EventArgs e)
         {
             bool updateWho = false;
             if (chkAddOrganization.Checked)
@@ -658,7 +670,6 @@ namespace RDEManager
                 RecordCleaner.updateWHO(this.records, txtAddWho.Text);
             }
 
-            
             int updatedAccessionNumbers = RecordCleaner.addAccessionNumbers(this.records);
             if (updatedAccessionNumbers > 0)
             {
@@ -677,6 +688,14 @@ namespace RDEManager
                 updateReport.Add($"Image list updated for {updatedImagePaths} records{Environment.NewLine}");
             }
 
+            //TODO add the process to add locality details
+
+            int qdsUpdates = RecordCleaner.addQDSFromCoordinates(this.records);
+            if (qdsUpdates > 0)
+            {
+                updateReport.Add($"QDS updated for {qdsUpdates} records");
+            }
+
             //some formatting and the last message
             updateReport.Add(Environment.NewLine);
             updateReport.Add(Environment.NewLine);
@@ -686,42 +705,11 @@ namespace RDEManager
 
             MessageBox.Show(message);
 
-            this.btnCleanRecords.Enabled = false;
-            this.btnFindErrors.Enabled = true;
+            this.btnUpdateMissingData.Enabled = false;
+            this.btnFindQDSCoordErrors.Enabled = true;
 
         }
 
-        private void btnAddQDSFromCoords_Click(object sender, EventArgs e)
-        {
-            rtbReportErrors.Clear();
-            int qdsUpdates = RecordCleaner.addQDSFromCoordinates(this.records);
-            if (qdsUpdates > 0)
-            {
-                rtbReportErrors.Text += $"QDS updated for {qdsUpdates} records";
-            }
-
-            btnCheckQDSCountry.Enabled = true;
-            btnAddQDSFromCoords.Enabled = false;
-
-        }
-
-        private void btnCheckQDSCountry_Click(object sender, EventArgs e)
-        {
-
-            this.checkingQDSErrorsOnly = true;
-            //search for the next error if false
-            if (findNextCountryQDSError(0))
-            {
-                this.viewRecordsBinding.DataSource = this.records.Rows[this.errorRecordIndex];
-                this.errorsBinding = new BindingList<string>(this.rowErrors);
-            }
-            else
-            {
-                this.checkingQDSErrorsOnly = false;
-                MessageBox.Show("No QDS errors found");
-            }
-
-        }
 
         //save the corrected dataset
         private void btnSaveChanges_Click(object sender, EventArgs e)
@@ -1060,7 +1048,7 @@ namespace RDEManager
             this.dupsSearched = true;
         }
 
-        private bool findNextRowWithErrors(int startIndex)
+        private bool findNextRowWithCaptureErrors(int startIndex)
         {
             this.rowErrors.Clear();
 
@@ -1128,25 +1116,51 @@ namespace RDEManager
                         this.rowErrors.Add(RecordErrors.qdsInvalid);
                     }
 
+                    string collectorsNotIn = RecordErrorFinder.getCollectorsNotInList(row, this.people);
+                    if (!String.IsNullOrEmpty(collectorsNotIn))
+                    {
+                        this.rowErrors.Add("The following collectors are not in the master list: " + collectorsNotIn);
+                    }
+
+                    //check if we found errors and break if we did
+                    if (this.rowErrors.Count > 0)
+                    {
+                        this.errorRecordIndex = i;
+                        return true;
+                    }
+                }
+
+                //if we reach the end without finding errors
+                return false;
+            }
+            else
+            {
+                return false;
+            }
+
+        }
+
+        private bool findNextRowWithQDSCoordErrors(int startIndex)
+        {
+            this.rowErrors.Clear();
+
+            if (startIndex < this.records.Rows.Count)
+            {
+                for (int i = startIndex; i < this.records.Rows.Count; i++)
+                {
+
+                    DataRow row = this.records.Rows[i];
+
                     if (!RecordErrorFinder.QDSValidForCountry(row, this.CountryQDSs))
                     {
                         this.rowErrors.Add(RecordErrors.qdsNotValidForCountry);
                     }
                     else //TEST FOR THE QDS - COORDINATES MATCH HERE
                     {
-                        if (String.IsNullOrEmpty(coordsErrors))
+                        if (!RecordErrorFinder.coordsMatchQDS(row))
                         {
-                            if (!RecordErrorFinder.coordsMatchQDS(row))
-                            {
-                                this.rowErrors.Add(RecordErrors.qdsCoordsMismatch);
-                            }
+                            this.rowErrors.Add(RecordErrors.qdsCoordsMismatch);
                         }
-                    }
-
-                    string collectorsNotIn = RecordErrorFinder.getCollectorsNotInList(row, this.people);
-                    if (!String.IsNullOrEmpty(collectorsNotIn))
-                    {
-                        this.rowErrors.Add("The following collectors are not in the master list: " + collectorsNotIn);
                     }
 
                     //check if we found errors and break if we did
@@ -1226,32 +1240,6 @@ namespace RDEManager
             this.lblErrorRowIndex.Visible = true;
         }
 
-        private bool findNextCountryQDSError(int startIndex)
-        {
-            this.rowErrors.Clear();
-
-            //loop through till we find an error
-            for (int i = startIndex; i < this.records.Rows.Count; i++)
-            {
-                DataRow row = this.records.Rows[i];
-                if (!RecordErrorFinder.QDSValidForCountry(row, this.CountryQDSs))
-                {
-                    this.errorRecordIndex = i;
-                    this.rowErrors.Add(RecordErrors.qdsNotValidForCountry);
-                    break;
-                }
-            }
-
-            //return whether or not there was an error found
-            if (this.rowErrors.Count == 0)
-            {
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
 
         //PROPERTIES
 

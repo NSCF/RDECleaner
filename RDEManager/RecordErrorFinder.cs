@@ -653,6 +653,7 @@ namespace RDEManager
             string lngStr = row["long"].ToString().Trim();
             string ew = row["ew"].ToString().Trim();
             string unit = row["llunit"].ToString().Trim();
+            string res = row["llres"].ToString().Trim();
             string qds = row["qds"].ToString().Trim();
 
             List<string> coordErrors = new List<string>();
@@ -759,9 +760,9 @@ namespace RDEManager
                 {
                     if (lat + lng == 0) //if they are both zeros, then not captured, check the other fields are not captured
                     {
-                        if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit))
+                        if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit) || !string.IsNullOrEmpty(res))
                         {
-                            return "ns, ew, and llunit should be empty if no coords captured";
+                            return "ns, ew, llres and llunit should be empty if no coords captured";
                         }
                     }
                     else
@@ -802,12 +803,12 @@ namespace RDEManager
                     double latMinNum = double.Parse(latMin);
                     double lngMinNum = double.Parse(lngMin);
 
-                    if (latMinNum > 60)
+                    if (latMinNum >= 60)
                     {
                         coordErrors.Add("lat minutes greater than 60");
                     }
 
-                    if (lngMinNum > 60)
+                    if (lngMinNum >= 60)
                     {
                         coordErrors.Add("long minutes greater than 60");
                     }

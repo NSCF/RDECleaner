@@ -58,15 +58,13 @@
             this.lblReportErrors = new System.Windows.Forms.Label();
             this.btnDeleteRows = new System.Windows.Forms.Button();
             this.btnMergeDups = new System.Windows.Forms.Button();
-            this.btnCleanRecords = new System.Windows.Forms.Button();
+            this.btnUpdateMissingData = new System.Windows.Forms.Button();
             this.gbCollNumberOptions = new System.Windows.Forms.GroupBox();
             this.rbNone = new System.Windows.Forms.RadioButton();
             this.rbNumberToSN = new System.Windows.Forms.RadioButton();
             this.rbNumberFromBarcode = new System.Windows.Forms.RadioButton();
-            this.btnFindErrors = new System.Windows.Forms.Button();
+            this.btnFindQDSCoordErrors = new System.Windows.Forms.Button();
             this.btnFindMissingRecords = new System.Windows.Forms.Button();
-            this.btnAddQDSFromCoords = new System.Windows.Forms.Button();
-            this.btnCheckQDSCountry = new System.Windows.Forms.Button();
             this.btnNextRowWithErrors = new System.Windows.Forms.Button();
             this.btnSaveChanges = new System.Windows.Forms.Button();
             this.lblErrorRowIndex = new System.Windows.Forms.Label();
@@ -76,6 +74,7 @@
             this.txtAddWho = new System.Windows.Forms.TextBox();
             this.btnCheckTaxa = new System.Windows.Forms.Button();
             this.btnClearRecords = new System.Windows.Forms.Button();
+            this.btnFindCaptureErrors = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.dgvRecordsView)).BeginInit();
             this.gbCollNumberOptions.SuspendLayout();
             this.SuspendLayout();
@@ -354,15 +353,15 @@
             this.btnMergeDups.UseVisualStyleBackColor = true;
             this.btnMergeDups.Click += new System.EventHandler(this.btnMergeDups_Click);
             // 
-            // btnCleanRecords
+            // btnUpdateMissingData
             // 
-            this.btnCleanRecords.Location = new System.Drawing.Point(243, 331);
-            this.btnCleanRecords.Name = "btnCleanRecords";
-            this.btnCleanRecords.Size = new System.Drawing.Size(204, 29);
-            this.btnCleanRecords.TabIndex = 42;
-            this.btnCleanRecords.Text = "Update missing fields";
-            this.btnCleanRecords.UseVisualStyleBackColor = true;
-            this.btnCleanRecords.Click += new System.EventHandler(this.btnCleanRecords_Click);
+            this.btnUpdateMissingData.Location = new System.Drawing.Point(243, 331);
+            this.btnUpdateMissingData.Name = "btnUpdateMissingData";
+            this.btnUpdateMissingData.Size = new System.Drawing.Size(204, 29);
+            this.btnUpdateMissingData.TabIndex = 42;
+            this.btnUpdateMissingData.Text = "Update missing fields";
+            this.btnUpdateMissingData.UseVisualStyleBackColor = true;
+            this.btnUpdateMissingData.Click += new System.EventHandler(this.btnUpdateMissingData_Click);
             // 
             // gbCollNumberOptions
             // 
@@ -407,16 +406,16 @@
             this.rbNumberFromBarcode.Text = "Add coll. nums from barcodes";
             this.rbNumberFromBarcode.UseVisualStyleBackColor = true;
             // 
-            // btnFindErrors
+            // btnFindQDSCoordErrors
             // 
-            this.btnFindErrors.Enabled = false;
-            this.btnFindErrors.Location = new System.Drawing.Point(469, 331);
-            this.btnFindErrors.Name = "btnFindErrors";
-            this.btnFindErrors.Size = new System.Drawing.Size(204, 29);
-            this.btnFindErrors.TabIndex = 44;
-            this.btnFindErrors.Text = "Find errors";
-            this.btnFindErrors.UseVisualStyleBackColor = true;
-            this.btnFindErrors.Click += new System.EventHandler(this.btnFindErrors_Click);
+            this.btnFindQDSCoordErrors.Enabled = false;
+            this.btnFindQDSCoordErrors.Location = new System.Drawing.Point(469, 331);
+            this.btnFindQDSCoordErrors.Name = "btnFindQDSCoordErrors";
+            this.btnFindQDSCoordErrors.Size = new System.Drawing.Size(204, 29);
+            this.btnFindQDSCoordErrors.TabIndex = 44;
+            this.btnFindQDSCoordErrors.Text = "Check new coords and QDSs";
+            this.btnFindQDSCoordErrors.UseVisualStyleBackColor = true;
+            this.btnFindQDSCoordErrors.Click += new System.EventHandler(this.btnFindQDSCoordErrors_Click);
             // 
             // btnFindMissingRecords
             // 
@@ -428,28 +427,6 @@
             this.btnFindMissingRecords.Text = "Check missing records";
             this.btnFindMissingRecords.UseVisualStyleBackColor = true;
             this.btnFindMissingRecords.Click += new System.EventHandler(this.btnFindMissingRecords_Click);
-            // 
-            // btnAddQDSFromCoords
-            // 
-            this.btnAddQDSFromCoords.Enabled = false;
-            this.btnAddQDSFromCoords.Location = new System.Drawing.Point(469, 366);
-            this.btnAddQDSFromCoords.Name = "btnAddQDSFromCoords";
-            this.btnAddQDSFromCoords.Size = new System.Drawing.Size(204, 29);
-            this.btnAddQDSFromCoords.TabIndex = 46;
-            this.btnAddQDSFromCoords.Text = "Add QDS from coordinates";
-            this.btnAddQDSFromCoords.UseVisualStyleBackColor = true;
-            this.btnAddQDSFromCoords.Click += new System.EventHandler(this.btnAddQDSFromCoords_Click);
-            // 
-            // btnCheckQDSCountry
-            // 
-            this.btnCheckQDSCountry.Enabled = false;
-            this.btnCheckQDSCountry.Location = new System.Drawing.Point(469, 403);
-            this.btnCheckQDSCountry.Name = "btnCheckQDSCountry";
-            this.btnCheckQDSCountry.Size = new System.Drawing.Size(204, 29);
-            this.btnCheckQDSCountry.TabIndex = 47;
-            this.btnCheckQDSCountry.Text = "Check new QDSs";
-            this.btnCheckQDSCountry.UseVisualStyleBackColor = true;
-            this.btnCheckQDSCountry.Click += new System.EventHandler(this.btnCheckQDSCountry_Click);
             // 
             // btnNextRowWithErrors
             // 
@@ -538,11 +515,23 @@
             this.btnClearRecords.UseVisualStyleBackColor = true;
             this.btnClearRecords.Click += new System.EventHandler(this.btnClearRecords_Click);
             // 
+            // btnFindCaptureErrors
+            // 
+            this.btnFindCaptureErrors.Enabled = false;
+            this.btnFindCaptureErrors.Location = new System.Drawing.Point(18, 435);
+            this.btnFindCaptureErrors.Name = "btnFindCaptureErrors";
+            this.btnFindCaptureErrors.Size = new System.Drawing.Size(204, 29);
+            this.btnFindCaptureErrors.TabIndex = 58;
+            this.btnFindCaptureErrors.Text = "Check capture errors";
+            this.btnFindCaptureErrors.UseVisualStyleBackColor = true;
+            this.btnFindCaptureErrors.Click += new System.EventHandler(this.btnFindCaptureErrors_Click);
+            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1472, 761);
+            this.Controls.Add(this.btnFindCaptureErrors);
             this.Controls.Add(this.btnClearRecords);
             this.Controls.Add(this.btnCheckTaxa);
             this.Controls.Add(this.txtAddWho);
@@ -552,12 +541,10 @@
             this.Controls.Add(this.lblErrorRowIndex);
             this.Controls.Add(this.btnSaveChanges);
             this.Controls.Add(this.btnNextRowWithErrors);
-            this.Controls.Add(this.btnCheckQDSCountry);
-            this.Controls.Add(this.btnAddQDSFromCoords);
             this.Controls.Add(this.btnFindMissingRecords);
-            this.Controls.Add(this.btnFindErrors);
+            this.Controls.Add(this.btnFindQDSCoordErrors);
             this.Controls.Add(this.gbCollNumberOptions);
-            this.Controls.Add(this.btnCleanRecords);
+            this.Controls.Add(this.btnUpdateMissingData);
             this.Controls.Add(this.btnMergeDups);
             this.Controls.Add(this.btnDeleteRows);
             this.Controls.Add(this.lblReportErrors);
@@ -627,15 +614,13 @@
         private System.Windows.Forms.Label lblReportErrors;
         private System.Windows.Forms.Button btnDeleteRows;
         private System.Windows.Forms.Button btnMergeDups;
-        private System.Windows.Forms.Button btnCleanRecords;
+        private System.Windows.Forms.Button btnUpdateMissingData;
         private System.Windows.Forms.GroupBox gbCollNumberOptions;
         private System.Windows.Forms.RadioButton rbNumberToSN;
         private System.Windows.Forms.RadioButton rbNumberFromBarcode;
         private System.Windows.Forms.RadioButton rbNone;
-        private System.Windows.Forms.Button btnFindErrors;
+        private System.Windows.Forms.Button btnFindQDSCoordErrors;
         private System.Windows.Forms.Button btnFindMissingRecords;
-        private System.Windows.Forms.Button btnAddQDSFromCoords;
-        private System.Windows.Forms.Button btnCheckQDSCountry;
         private System.Windows.Forms.Button btnNextRowWithErrors;
         private System.Windows.Forms.Button btnSaveChanges;
         private System.Windows.Forms.Label lblErrorRowIndex;
@@ -645,6 +630,7 @@
         private System.Windows.Forms.TextBox txtAddWho;
         private System.Windows.Forms.Button btnCheckTaxa;
         private System.Windows.Forms.Button btnClearRecords;
+        private System.Windows.Forms.Button btnFindCaptureErrors;
     }
 }
 
