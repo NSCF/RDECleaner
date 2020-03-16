@@ -27,9 +27,93 @@ namespace RDEManager
 
             this.rowErrors = new List<string>();
 
+            this.checkingQDSErrorsOnly = false;
+
+            this.peopleChecked = new List<string>();
+
+            this.records = new DataTable();
+
         }
 
         //UI FUNCTIONS
+
+        private void btnChooseSchema_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
+                openFileDialog.FilterIndex = 1;
+                openFileDialog.Multiselect = false;
+
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    string fileName = openFileDialog.FileName;
+                    string directory = Path.GetDirectoryName(fileName);
+                    fileName = Path.GetFileName(fileName);
+                    string fileExtenstion = Path.GetExtension(fileName);
+                    string tableName = fileName.Replace(fileExtenstion, "");
+
+
+                    //get the schema
+                    string connectionString = @"Provider=VFPOLEDB.1;Data Source=" + directory + "\\" + fileName;
+                    string selectSQL = "select * from [" + tableName + "]";
+                    string deleteSQL = "delete from [" + tableName + "]";
+                    using (OleDbConnection connection = new OleDbConnection(connectionString))
+                    using (OleDbCommand command = new OleDbCommand(selectSQL, connection))
+                    using (OleDbCommand deleteCommand = new OleDbCommand(deleteSQL, connection))
+                    {
+                        try
+                        {
+                            connection.Open();
+
+                            //create the reader
+                            OleDbDataReader reader = command.ExecuteReader();
+
+                            DataTable schemaTable = reader.GetSchemaTable();
+                            this.templateSchema = schemaTable;
+                            this.templateColNames = new List<string>();
+                            this.templateColTypes = new List<string>();
+                            foreach (DataRow row in schemaTable.Rows)
+                            {
+                                this.templateColNames.Add(row["ColumnName"].ToString());
+                                this.templateColTypes.Add(row["DataType"].ToString());
+                            }
+
+                            //load the schema to create an initial empty dataset
+                            try
+                            {
+                                this.records.Load(reader);
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show("Error loading the schema: " + ex.Message);
+                                return;
+                            }
+
+                            //delete any records that might be lurking in the template schema
+                            try
+                            {
+                                deleteCommand.ExecuteNonQuery();
+                            }
+                            catch(Exception ex)
+                            {
+                                MessageBox.Show("Error clearning records from template: " + ex.Message);
+                                return;
+                            }
+
+                            txtSchemaFile.Text = fileName;
+                            lblSchemaFields.Text = $"{templateColNames.Count} fields";
+                            btnChooseDBF.Enabled = true;
+
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show("Error reading the template file: " + ex.Message);
+                        }
+                    }
+                }
+            }
+        }
 
         private void btnChooseDBF_Click(object sender, EventArgs e)
         {
@@ -61,14 +145,21 @@ namespace RDEManager
 
         private void addFile_Click(object sender, EventArgs e)
         {
-            this.records = new DataTable();
+            
+            this.tablesNotAdded = new List<string>();
 
             string[] stringSeparators = new string[] { " | " };
             string[] fileNames = txtChooseDBF.Text.Split(stringSeparators, StringSplitOptions.None);
 
             for (int i = 0; i < fileNames.Length; i++)
             {
-                addDBFRecords(fileNames[i]);
+                addRDERecords(fileNames[i]);
+            }
+
+            if (this.tablesNotAdded.Count > 0)
+            {
+                string joinedTableNames = String.Join("; ", this.tablesNotAdded.ToArray());
+                MessageBox.Show($"The following tables could not be added due to errors or schema violations: {joinedTableNames}");
             }
 
             btnClearRecords.Enabled = true;
@@ -77,6 +168,7 @@ namespace RDEManager
             btnChooseQDSCountries.Enabled = true;
             btnChoosePeople.Enabled = true;
             btnCheckDuplicates.Enabled = true;
+            btnFindCaptureErrors.Enabled = true;
 
         }
 
@@ -92,6 +184,7 @@ namespace RDEManager
                 this.records.Clear();
                 lblNumberOfRecords.Text = "Number of records: ";
                 btnClearRecords.Enabled = false;
+                btnFindCaptureErrors.Enabled = false;
             }
             else
             {
@@ -102,17 +195,25 @@ namespace RDEManager
         private void btnChooseImageFolder_Click(object sender, EventArgs e)
         {
 
-            FolderBrowserDialog fbd = new FolderBrowserDialog();
-            using (fbd)
+            if (this.records != null && this.records.Rows.Count > 0)
             {
-                DialogResult result = fbd.ShowDialog();
-
-                if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+                FolderBrowserDialog fbd = new FolderBrowserDialog();
+                using (fbd)
                 {
-                    txtImageFolder.Text = fbd.SelectedPath;
-                    btnFindMissingRecords.Enabled = true;
+                    DialogResult result = fbd.ShowDialog();
+
+                    if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+                    {
+                        txtImageFolder.Text = fbd.SelectedPath;
+                        btnFindMissingRecords.Enabled = true;
+                    }
                 }
             }
+            else
+            {
+                MessageBox.Show("Make sure to import the RDE files before continuing");
+            }
+
         }
 
         private void btnChooseTaxonBackbone_Click(object sender, EventArgs e)
@@ -126,6 +227,10 @@ namespace RDEManager
             using (openFileDialog)
             {
 
+                this.modalMessage = "Please wait while taxa are imported";
+                Form wait = new PleaseWait(this);
+                wait.Show();
+
                 openFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
                 openFileDialog.FilterIndex = 1;
 
@@ -137,7 +242,7 @@ namespace RDEManager
 
                     try
                     {
-                        readDBFTable(taxonDirectory, taxonFile, this.taxa);
+                        readDBFTable(taxonDirectory, taxonFile, this.taxa, false);
                     }
                     catch (Exception ex)
                     {
@@ -151,6 +256,8 @@ namespace RDEManager
                     lblNoTaxa.Text = $"No. of taxon records:  {this.taxa.Rows.Count}";
 
                 }
+
+                wait.Close();
             }
         }
 
@@ -246,6 +353,10 @@ namespace RDEManager
             using (OpenFileDialog openFileDialog = new OpenFileDialog())
             {
 
+                this.modalMessage = "Please wait while people are imported";
+                Form wait = new PleaseWait(this);
+                wait.Show();
+
                 openFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
                 openFileDialog.FilterIndex = 1;
 
@@ -257,7 +368,7 @@ namespace RDEManager
 
                     try
                     {
-                        readDBFTable(peopleDirectory, peopleFile, this.people);
+                        readDBFTable(peopleDirectory, peopleFile, this.people, false);
                     }
                     catch (Exception ex)
                     {
@@ -265,12 +376,15 @@ namespace RDEManager
                         return;
                     }
 
-                    MessageBox.Show("People table successfully imported");
                     txtPeopleTable.Text = peopleFile;
                     this.lblPeople.Text = $"No. of agent records: {this.people.Rows.Count}";
-                    this.btnUpdateMissingData.Enabled = true;
+
+                    MessageBox.Show("People table successfully imported");
+
 
                 }
+
+                wait.Close();
             }
         }
 
@@ -359,21 +473,36 @@ namespace RDEManager
 
         private void btnCheckDuplicates_Click(object sender, EventArgs e)
         {
+
+
             RecordCleaner.removeBarcodeExclamations(this.records);
 
-            int duplicatesRemoved = RecordCleaner.removeDuplicates(this.records);
+            /*
+            try
+            {
+                int duplicatesRemoved = RecordCleaner.removeDuplicates(this.records);
+                MessageBox.Show($"{duplicatesRemoved} identical duplicate records removed");
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show($"Error removing identical duplicates. They will have to be removed manually");
+            }
+            */
 
             if (!this.dupsSearched)
             {
+                this.modalMessage = "Please wait while non-identical duplicates are located";
+                Form wait = new PleaseWait(this);
+                wait.Show();
                 this.findBotRecDuplicates(); //generates the list of duplicates. Next step is to process them
+                wait.Close();
             }
-
-            MessageBox.Show($"{duplicatesRemoved} identical duplicate records removed");
 
             //set the bndings for the grid view
             if (this.botRecDuplicates.Count > 0)
             {
                 MessageBox.Show($"{this.botRecDuplicates.Count} duplicate records need to be processed");
+                btnShowImage.Enabled = true;
                 this.showNextDuplicate();
                 this.btnNextDuplicate.Enabled = true;
                 this.btnMergeDups.Enabled = true;
@@ -403,7 +532,7 @@ namespace RDEManager
                 this.btnNextDuplicate.Enabled = false;
                 this.btnMergeDups.Enabled = false;
                 this.btnDeleteRows.Enabled = false;
-                this.lblDupIndexCount.Text = "";
+                this.lblDupsCount.Text = "";
 
                 this.btnUpdateMissingData.Enabled = true;
 
@@ -425,10 +554,13 @@ namespace RDEManager
 
                 if (taxaNotFound.Count > 0)
                 {
-                    string printErr = "";
-                    foreach(string key in taxaNotFound.Keys)
+                    string printErr = $"Taxa not found:{Environment.NewLine}";
+                    foreach (string key in taxaNotFound.Keys)
                     {
-                        printErr += $"{key}: {String.Join("; ",taxaNotFound[key].ToArray())} {Environment.NewLine}";
+                        if (taxaNotFound[key].Count > 0)
+                        {
+                            printErr += $"{key}: {String.Join("; ", taxaNotFound[key].ToArray())} {Environment.NewLine}";
+                        }
                     }
                     rtbReportErrors.Clear();
                     rtbReportErrors.Text = printErr;
@@ -442,27 +574,46 @@ namespace RDEManager
 
         private void btnFindCaptureErrors_Click(object sender, EventArgs e)
         {
-            this.errorsBinding = new BindingList<string>(this.rowErrors);
-            //search for the next error if false
-            if (this.findNextRowWithCaptureErrors(0))
-            {
-                this.btnNextRowWithErrors.Enabled = true;
 
-                this.showNextError();
+            if (this.people != null && this.people.Rows.Count > 0)
+            {
+                this.errorsBinding = new BindingList<string>(this.rowErrors);
+                //search for the next error if false
+                if (this.findNextRowWithCaptureErrors(0))
+                {
+                    this.btnNextRowWithErrors.Enabled = true;
+                    btnDeleteRows.Enabled = true;
+                    btnShowImage.Enabled = true;
+
+                    this.showNextError();
+                }
+                else
+                {
+                    MessageBox.Show("No errors found");
+                    this.btnUpdateMissingData.Enabled = true;
+                    btnDeleteRows.Enabled = false;
+                    btnShowImage.Enabled = false;
+                    this.btnNextRowWithErrors.Enabled = false;
+                }
             }
             else
             {
-                MessageBox.Show("No errors found");
+                MessageBox.Show("Checking errors requires a people table. Please import it and then proceed");
             }
+
+
         }
 
         private void btnFindQDSCoordErrors_Click(object sender, EventArgs e)
         {
+            this.checkingQDSErrorsOnly = true;
             this.errorsBinding = new BindingList<string>(this.rowErrors);
             //search for the next error if false
             if (this.findNextRowWithQDSCoordErrors(0))
             {
                 this.btnNextRowWithErrors.Enabled = true;
+                btnDeleteRows.Enabled = true;
+                btnShowImage.Enabled = true;
 
                 this.showNextError();
             }
@@ -472,9 +623,104 @@ namespace RDEManager
             }
         }
 
-        //TODO this might not be needed anymore
+        private void btnShowImage_Click(object sender, EventArgs e)
+        {
+
+            if (!String.IsNullOrEmpty(this.txtImageFolder.Text.Trim()))
+            {
+
+                if (dgvRecordsView.RowCount == 1 || dgvRecordsView.SelectedRows.Count > 0)
+                {
+                    List<string> barcodes = new List<string>();
+                    bool allRowsWithBarcodes = true;
+                    if (dgvRecordsView.SelectedRows.Count > 0)
+                    {
+                        foreach (DataGridViewRow row in dgvRecordsView.SelectedRows)
+                        {
+                            string barcode = row.Cells["barcode"].Value.ToString().Trim();
+                            if (!string.IsNullOrEmpty(barcode))
+                            {
+                                barcodes.Add(barcode);
+                            }
+                            else
+                            {
+                                allRowsWithBarcodes = false;
+                            }
+                        }
+
+                        if (!allRowsWithBarcodes)
+                        {
+                            MessageBox.Show("Some selected rows are missing valid barcodes");
+                        }
+                    }
+                    else
+                    {
+                        string barcode = dgvRecordsView.Rows[0].Cells["barcode"].Value.ToString().Trim();
+                        if (!string.IsNullOrEmpty(barcode))
+                        {
+                            barcodes.Add(barcode);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Record is missing a valid barcode");
+                        }
+                    }
+
+                    if (barcodes.Count > 0)
+                    {
+                        //get the files if we don't have them already
+                        if (this.imagePaths == null)
+                        {
+                            this.imagePaths = new List<string>();
+                            GetFilesRecursive(this.txtImageFolder.Text, imagePaths); //get a list of all the file names
+                        }
+
+                        List<string> filePathsToShow = new List<string>();
+                        List<string> barcodesWithNoFiles = new List<string>();
+                        foreach (string barcode in barcodes)
+                        {
+                            List<string> foundFilePaths = imagePaths.Where(x => x.Contains($"{barcode}.jpg")).ToList();
+                            if (foundFilePaths.Count > 0)
+                            {
+                                filePathsToShow.AddRange(foundFilePaths);
+                            }
+                            else
+                            {
+                                barcodesWithNoFiles.Add(barcode);
+                            }
+                        }
+
+                        //make sure filePaths are unique
+                        filePathsToShow = filePathsToShow.Select(x => x).Distinct().ToList();
+
+                        foreach (string filePath in filePathsToShow)
+                        {
+                            System.Diagnostics.Process.Start(filePath); //opens the file
+                        }
+
+                        if (barcodesWithNoFiles.Count > 0)
+                        {
+                            MessageBox.Show("Image files not found for the following images: " + String.Join(";", barcodesWithNoFiles.ToArray()));
+                        }
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("No records selected");
+                    return;
+                }
+            }
+            else
+            {
+                MessageBox.Show("The images folder has not been selected.");
+            }
+        }
+
         private void btnNextRowWithErrors_Click(object sender, EventArgs e)
         {
+            btnNextRowWithErrors.Enabled = false;
+            btnConfirmPeople.Enabled = false;
+
             if (this.checkingQDSErrorsOnly)
             {
                 bool errorFound = this.findNextRowWithQDSCoordErrors(this.errorRecordIndex + 1);
@@ -482,36 +728,65 @@ namespace RDEManager
                 {
                     MessageBox.Show("no more errors found");
                 }
+                else
+                {
+                    this.btnNextRowWithErrors.Enabled = true;
+                    btnDeleteRows.Enabled = true;
+                    btnShowImage.Enabled = true;
+                    btnNextRowWithErrors.Enabled = true;
+                    this.showNextError();
+                }
             }
             else
             {
-                if (this.findNextRowWithQDSCoordErrors(this.errorRecordIndex + 1))
+                if (this.findNextRowWithCaptureErrors(this.errorRecordIndex + 1))
                 {
+                    btnNextRowWithErrors.Enabled = true;
                     this.showNextError();
                 }
                 else
                 {
                     this.rtbReportErrors.Clear();
                     this.btnNextRowWithErrors.Enabled = false;
+                    this.btnDeleteRows.Enabled = false;
+                    this.btnShowImage.Enabled = false;
                     this.lblErrorRowIndex.Visible = false;
                     MessageBox.Show("no more errors found");
                 }
             }
         }
 
+        private void btnConfirmPeople_Click(object sender, EventArgs e)
+        {
+            //we need to parse the error list, get the names out again and put them in peopleChecked
+            List<string> namesToAdd = new List<string>();
+            string collectorErrors = this.rowErrors.Find(x => x.StartsWith("The following collectors are not in the master list: "));
+            if (!String.IsNullOrEmpty(collectorErrors))
+            {
+                string collectorNamesJoined = collectorErrors.Replace("The following collectors are not in the master list: ", "").Trim();
+                List<string> splitNames = collectorNamesJoined.Split(';').ToList().Select(x => x.Trim()).ToList(); //split and trim
+                namesToAdd.AddRange(splitNames);
+            }
+           
+            string detnameError = this.rowErrors.Find(x => x.StartsWith("The determiner is not in the master list: "));
+            if (!String.IsNullOrEmpty(detnameError))
+            {
+                string detname = detnameError.Replace("The determiner is not in the master list: ", "").Trim();
+                namesToAdd.Add(detname);
+            }
+
+            if(namesToAdd.Count > 0)
+            {
+                this.peopleChecked.AddRange(namesToAdd);
+            }
+
+            btnConfirmPeople.Enabled = false;
+
+        }
+
         private void btnTestSomething_Click(object sender, EventArgs e)
         {
             this.btnChooseQDSCountries_Click(sender, e);
-        }
-
-        private void dgvRecordsView_SelectionChanged(object sender, EventArgs e)
-        {
-
-            if (this.viewRecordsBinding.DataSource != null && this.dgvRecordsView.SelectedRows.Count > 0)
-            {
-                this.rtbReportErrors.Text = this.dgvRecordsView.SelectedRows[0].Cells["locnotes"].Value.ToString();
-            }
-
         }
 
         private void btnMergeDups_Click(object sender, EventArgs e)
@@ -600,11 +875,11 @@ namespace RDEManager
                 if (MessageBox.Show($"Are you sure you want to delete {this.dgvRecordsView.SelectedRows.Count} records?",
                     "Confirm delete", MessageBoxButtons.YesNo) == System.Windows.Forms.DialogResult.Yes)
                 {
-                    foreach (DataGridViewRow item in this.dgvRecordsView.SelectedRows)
+                    foreach (DataGridViewRow row in this.dgvRecordsView.SelectedRows)
                     {
-                        this.dgvRecordsView.Rows.RemoveAt(item.Index);
-                        this.records.AcceptChanges();
+                        this.dgvRecordsView.Rows.RemoveAt(row.Index);
                     }
+                    this.records.AcceptChanges();
                 }
 
             }
@@ -665,7 +940,7 @@ namespace RDEManager
                 updateReport.Add($"Countries added for {countriesUpdated} records{Environment.NewLine}");
             }
 
-            if(updateWho)
+            if (updateWho)
             {
                 RecordCleaner.updateWHO(this.records, txtAddWho.Text);
             }
@@ -699,7 +974,7 @@ namespace RDEManager
             //some formatting and the last message
             updateReport.Add(Environment.NewLine);
             updateReport.Add(Environment.NewLine);
-            updateReport.Add("Record cleaning complete. Proceed to error checking.");
+            updateReport.Add("Record updates complete.");
 
             string message = String.Join("", updateReport.ToArray());
 
@@ -710,8 +985,8 @@ namespace RDEManager
 
         }
 
-
         //save the corrected dataset
+        //TODO check this works after any schema changes
         private void btnSaveChanges_Click(object sender, EventArgs e)
         {
             SaveFileDialog saveFileDialog1 = new SaveFileDialog();
@@ -724,7 +999,7 @@ namespace RDEManager
             if (saveFileDialog1.FileName != "")
             {
                 //copy a file, clear it, and write all the new records to it. 
-                string sourceFile = this.txtChooseDBF.Text.Split(';')[0].Trim();
+                string sourceFile = this.txtChooseDBF.Text.Split('|')[0].Trim();
 
                 try
                 {
@@ -765,12 +1040,6 @@ namespace RDEManager
                         return;
                     }
 
-                    //get the file schema
-                    OleDbCommand cm = new OleDbCommand($"select top 5 * from {tableName} order by barcode", connection);
-                    OleDbDataReader myReader = cm.ExecuteReader();
-                    DataTable schemaTable = myReader.GetSchemaTable(); ;
-
-
                     //clear all records
                     OleDbCommand deleteCmd = new OleDbCommand(deleteSQL, connection);
                     try
@@ -809,6 +1078,8 @@ namespace RDEManager
 
                     OleDbCommand insertCommand = new OleDbCommand(addSQL, connection);
                     int counter = 0; // this is just for keeping track during debugging
+                    List<string> rowSaveErrorBarcodes = new List<string>();
+
                     foreach (DataRow row in this.records.Rows)
                     {
                         counter++;
@@ -817,9 +1088,20 @@ namespace RDEManager
                         foreach (string colName in columnNames)
                         {
                             //get the type for this column
-                            DataRow schema = schemaTable.Select($"ColumnName = '{colName}'")[0];
-                            string coltype = schema["DataType"].ToString();
-                            bool isLong = (bool)schema["IsLong"];
+                            string coltype = "";
+                            bool isLong;
+                            try
+                            {
+                                DataRow schema = this.templateSchema.Select($"ColumnName = '{colName}'")[0];
+                                coltype = schema["DataType"].ToString();
+                                isLong = (bool)schema["IsLong"];
+
+                            }
+                            catch
+                            {
+                                MessageBox.Show($"Could not find column {colName} in {tableName}. File save aborted.");
+                                return;
+                            }
 
                             OleDbType OleColType;
                             if (coltype == "System.String")
@@ -888,14 +1170,21 @@ namespace RDEManager
                         }
                         catch (OleDbException ex)
                         {
-                            MessageBox.Show($"Error saving file. Could not add row with message {ex.Message}");
-                            return;
+                            rowSaveErrorBarcodes.Add(row["barcode"].ToString().Trim());
                         }
                     }
 
                     //if we get here, it worked!!
                     connection.Close();
-                    MessageBox.Show("Records successfully saved");
+
+                    if (rowSaveErrorBarcodes.Count == 0)
+                    {
+                        MessageBox.Show("Records successfully saved");
+                    }
+                    else
+                    {
+                        MessageBox.Show($"The following records were not saved due to errors: {String.Join("; ", rowSaveErrorBarcodes.ToArray())}");
+                    }
 
                 }
             }
@@ -911,62 +1200,201 @@ namespace RDEManager
             }
         }
 
+        private void Main_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (MessageBox.Show("Are you sure you want to exit? Any unsaved changes will be lost.",
+                               "RDE Data Cleaner",
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Information) == DialogResult.No)
+            {
+                e.Cancel = true;
+            }
+        }
+
         //HELPER FUNCTIONS
 
-        private void readDBFTable(string directory, string fileName, DataTable target)
+        private void readDBFTable(string directory, string fileName, DataTable target, bool RDESchemaCheck)
         {
             string fileExtenstion = Path.GetExtension(fileName);
             string tableName = fileName.Replace(fileExtenstion, "");
 
+            if (missingColumnsToIgnore == null)
+            {
+                missingColumnsToIgnore = new List<string>();
+            }
+
             string connectionString = @"Provider=VFPOLEDB.1;Data Source=" + directory + "\\" + fileName;
             string selectSQL = "select * from [" + tableName + "]";
             using (OleDbConnection connection = new OleDbConnection(connectionString))
-            using (OleDbCommand command = connection.CreateCommand())
+            using (OleDbCommand command = new OleDbCommand(selectSQL, connection))
             {
                 try
                 {
                     connection.Open();
+
+                    //create the reader
+                    OleDbDataReader reader = command.ExecuteReader();
+
+                    if (RDESchemaCheck)
+                    {
+                        DataTable currentFileSchema = reader.GetSchemaTable();
+                        List<string> currentFileColNames = new List<string>();
+                        List<string> additionalColNames = new List<string>();
+                        List<string> colTypeMismatches = new List<string>();
+
+                        //check current file schema against template schema
+                        foreach (DataRow row in currentFileSchema.Rows)
+                        {
+                            string colName = row["ColumnName"].ToString();
+                            string colType = row["DataType"].ToString();
+
+                            currentFileColNames.Add(colName);
+
+                            DataRow[] templateRow = this.templateSchema.Select($"ColumnName = '{colName}'");
+
+                            if (templateRow.Length == 0)
+                            {
+                                additionalColNames.Add(colName);
+                            }
+                            else
+                            {
+                                string templateColType = templateRow[0]["DataType"].ToString();
+                                if (colType != templateColType)
+                                {
+                                    colTypeMismatches.Add(colName);
+                                }
+                            }
+                        }
+
+                        //check template schema against current file schema (for missing fields)
+                        List<string> namesToCheck = this.templateColNames.Where(templateColName => !this.missingColumnsToIgnore.Contains(templateColName)).ToList();
+                        List<string> missingColNames = namesToCheck
+                            .Where(nameToCheck => !currentFileColNames.Contains(nameToCheck))
+                            .ToList();
+
+                        if (additionalColNames.Count == 0 && missingColNames.Count == 0 && colTypeMismatches.Count == 0)
+                        {
+
+                            try
+                            {
+                                target.Load(reader);
+                            }
+                            catch (Exception ex)
+                            {
+                                this.tablesNotAdded.Add($"{tableName} with error: {ex.Message}");
+                            }
+                        }
+                        else //schemas don't match
+                        {
+                            string missingfromCurrentString = String.Join(", ", missingColNames.Select(x => $"[{x}]"));
+                            string missingFromSchemaString = String.Join(", ", additionalColNames.Select(x => $"[{x}]"));
+                            string typeMismatchesString = String.Join(", ", colTypeMismatches.Select(x => $"[{x}]"));
+
+                            string tableAndCols = $"{tableName}";
+                            if (missingColNames.Count > 0)
+                            {
+                                tableAndCols += $" missing: {missingfromCurrentString}";
+                            }
+
+                            if (additionalColNames.Count > 0)
+                            {
+                                if (missingColNames.Count > 0)
+                                {
+                                    tableAndCols += " -- ";
+                                }
+                                tableAndCols += $" additional {missingFromSchemaString}";
+                            }
+
+                            if (colTypeMismatches.Count > 0)
+                            {
+                                tableAndCols += $"{Environment.NewLine}{Environment.NewLine} TYPE MISMATCHES: {typeMismatchesString}";
+                            }
+
+                            tableAndCols += $"{Environment.NewLine}{Environment.NewLine}";
+
+                            
+                            if(colTypeMismatches.Count == 0)
+                            {
+                                //if column mismatch provide the option to add anyway
+                                if (missingColNames.Count > 0 || additionalColNames.Count > 0)
+                                {
+                                    string showMessage = $"{tableAndCols}Do you want to add this file anyway?";
+                                    DialogResult result = MessageBox.Show(showMessage, $"Confirm schema for {tableName}", MessageBoxButtons.YesNo);
+
+                                    if (result == DialogResult.Yes)
+                                    {
+                                        try
+                                        {
+                                            ConstraintCollection constraints = target.Constraints;
+                                            target.Load(reader); //this supposedly adds additional columns and put null for missing columns
+
+                                            //update the template schema
+                                            DataTableReader dtr = this.records.CreateDataReader();
+                                            this.templateSchema = dtr.GetSchemaTable();
+                                            this.templateColNames.Clear();
+                                            foreach(DataRow row in this.templateSchema.Rows)
+                                            {
+                                                this.templateColNames.Add(row["ColumnName"].ToString());
+                                            }
+                                            
+                                            //remember which missing columns to ignore
+                                            this.missingColumnsToIgnore.AddRange(missingColNames);
+
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            this.tablesNotAdded.Add($"{tableName} with error: {ex.Message}");
+                                        }
+                                    }
+                                    else if (result == DialogResult.No)
+                                    {
+                                        this.tablesNotAdded.Add(tableAndCols);
+                                    }
+                                }
+                                else
+                                {
+                                    string showMessage = $"{tableAndCols}PLEASE CORRECT DATA TYPE MISMATCHES MANUALLY AND THEN ADD THIS FILE AGAIN?";
+                                    MessageBox.Show(showMessage);
+                                }
+                            }
+                            
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            target.Load(reader);
+                        }
+                        catch (Exception ex)
+                        {
+                            this.tablesNotAdded.Add($"{tableName} with error: {ex.Message}");
+                        }
+                    }
+
+                    connection.Close();
+
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception("Error with database connection: " + ex.Message);
-                }
-
-
-                if (connection.State == ConnectionState.Open)
-                {
-                    OleDbCommand cmd = new OleDbCommand(selectSQL, connection);
-                    OleDbDataAdapter DA = new OleDbDataAdapter(cmd);
-
-                    try
+                    if (connection.State == ConnectionState.Open)
                     {
-                        DA.Fill(target);
+                        connection.Close();
                     }
-                    catch (Exception ex)
-                    {
-                        throw ex;
-                    }
-
-                    return;
-
+                    this.tablesNotAdded.Add($"{tableName} with database connection error: {ex.Message}");
                 }
-
             }
+
         }
 
-        private void addDBFRecords(string fileName)
+        
+
+        private void addRDERecords(string fileName)
         {
             string folderName = this.workingDir;
 
-            try
-            {
-                readDBFTable(folderName, fileName, this.records);
-                lblNumberOfRecords.Text = "Number of records: " + this.records.Rows.Count;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error reading records for {fileName}: {ex.Message}");
-            }
+            readDBFTable(folderName, fileName, this.records, true);
+            lblNumberOfRecords.Text = "Number of records: " + this.records.Rows.Count;
 
         }
 
@@ -999,6 +1427,8 @@ namespace RDEManager
 
             char[] seps = { '-', '–', '—' };
 
+            List<DataRow> recordsToDelete = new List<DataRow>(); //for identical duplicate records to delete
+
             foreach (DataRow row in this.records.Rows)
             {
                 string barcode = row["barcode"].ToString().Trim();
@@ -1021,20 +1451,62 @@ namespace RDEManager
 
                 if (cnt == 0)
                 {
-                    DataRow[] dups = this.records.Select($"TRIM(barcode) like '{root}*'");
+                    List<DataRow> dups = this.records.Select($"TRIM(barcode) like '{root}*'").ToList();
 
-                    if (dups.Count() > 1)
+                    if (dups.Count > 1)
                     {
-                        List<string> dupBarcodes = new List<string>();
 
-                        foreach (DataRow dr in dups)
+                        List<int> dupsToRemove = new List<int>();
+
+                        //first if they are identical record the identical records to delete
+                        for (int i = 0; i < dups.Count - 1; i++)
                         {
-                            dupBarcodes.Add(dr["barcode"].ToString().Trim());
+                            for (int j = i + 1; j < dups.Count; j++)
+                            {
+                                bool identical = true;
+                                for (int k = 0; k < dups[i].ItemArray.Length; k++)//iterate the values
+                                {
+                                    if (dups[i].ItemArray[k].ToString().Trim() != dups[j].ItemArray[k].ToString().Trim())
+                                    {
+                                        identical = false;
+                                        break;
+                                    }
+                                }
+                                if (identical)
+                                {
+                                    DataRow rowToDelete = dups[i];
+                                    if (!recordsToDelete.Contains(rowToDelete)) //just so we don't add it twice
+                                    {
+                                        recordsToDelete.Add(rowToDelete);
+                                    }
+                                    dupsToRemove.Add(i);
+                                }
+                            }
                         }
 
-                        this.botRecDuplicates.Add(new BotanicalRecordDuplicateTracker(root, dupBarcodes));
+                        //clean up
+                        if (dupsToRemove.Count > 0)
+                        {
+                            foreach (int index in dupsToRemove)
+                            {
+                                dups.RemoveAt(index);
+                            }
+                        }
 
-                        this.lblDupsCount.Text = "No. Dups: " + this.botRecDuplicates.Count;
+                        if (dups.Count > 1)
+                        {
+                            //then record those that are not identical for manual processing
+                            List<string> dupBarcodes = new List<string>();
+
+                            foreach (DataRow dr in dups)
+                            {
+                                dupBarcodes.Add(dr["barcode"].ToString().Trim());
+                            }
+
+                            this.botRecDuplicates.Add(new BotanicalRecordDuplicateTracker(root, dupBarcodes));
+
+                            this.lblDupsCount.Text = "No. Dups: " + this.botRecDuplicates.Count;
+                        }
 
                     }
                 }
@@ -1043,6 +1515,18 @@ namespace RDEManager
                     continue;
                 }
 
+            }
+
+            //delete any identical duplicates
+            if (recordsToDelete.Count > 0)
+            {
+                foreach (DataRow record in recordsToDelete)
+                {
+                    record.Delete();
+                    identicalDupsDeletedCount++;
+                }
+                this.records.AcceptChanges();
+                MessageBox.Show($"{identicalDupsDeletedCount} identical duplicates removed");
             }
 
             this.dupsSearched = true;
@@ -1064,10 +1548,18 @@ namespace RDEManager
                         this.rowErrors.Add(RecordErrors.noBarcode);
                     }
 
+                    if (!RecordErrorFinder.barcodeValid(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.invalidBarcode);
+                    }
+
+                    /*
+                    no longer used
                     if (!RecordErrorFinder.numberIsAnIntegerOrSN(row))
                     {
                         this.rowErrors.Add(RecordErrors.collNumberError);
                     }
+                    */
 
                     if (!RecordErrorFinder.higherTaxaAllPresent(row))
                     {
@@ -1080,9 +1572,16 @@ namespace RDEManager
                         this.rowErrors.Add($"{RecordErrors.ranksNotInBackbone}: {ranksNotInBackbone}");
                     }
 
-                    if (!RecordErrorFinder.isDeterminerInList(row, this.people))
+                    if (!RecordErrorFinder.detDateIsValid(row))
                     {
-                        this.rowErrors.Add("The determiner is not in the master list");
+                        this.rowErrors.Add(RecordErrors.detDateInvalid);
+                    }
+
+                    string determinerNotInList = RecordErrorFinder.isDeterminerInList(row, this.people, this.peopleChecked);
+                    if (!String.IsNullOrEmpty(determinerNotInList))
+                    {
+                        this.rowErrors.Add("The determiner is not in the master list: " + determinerNotInList);
+                        btnConfirmPeople.Enabled = true;
                     }
 
                     if (!RecordErrorFinder.countryInList(row, this.CountryCodes))
@@ -1116,10 +1615,23 @@ namespace RDEManager
                         this.rowErrors.Add(RecordErrors.qdsInvalid);
                     }
 
-                    string collectorsNotIn = RecordErrorFinder.getCollectorsNotInList(row, this.people);
+                    string collectorsNotIn = RecordErrorFinder.getCollectorsNotInList(row, this.people, this.peopleChecked);
                     if (!String.IsNullOrEmpty(collectorsNotIn))
                     {
                         this.rowErrors.Add("The following collectors are not in the master list: " + collectorsNotIn);
+                        btnConfirmPeople.Enabled = true;
+                    }
+
+                    if (!RecordErrorFinder.collDateIsValid(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.collectionDateInvalid);
+                    }
+
+
+                    //last one!
+                    if (!RecordErrorFinder.detDateAfterCollDate(row))
+                    {
+                        this.rowErrors.Add(RecordErrors.detDateBeforeCollectionDate);
                     }
 
                     //check if we found errors and break if we did
@@ -1185,6 +1697,8 @@ namespace RDEManager
         {
             BotanicalRecordDuplicateTracker next = this.botRecDuplicates[this.botRecDuplicatesIndex];
 
+            lblDupsCount.Text = $"{this.botRecDuplicatesIndex} of {this.botRecDuplicates.Count}";
+
             //make the search string
             string INSearch = "";
             foreach (string dupBarcode in next.dupBarcodes)
@@ -1211,7 +1725,7 @@ namespace RDEManager
 
             this.botRecDuplicatesIndex++;
 
-            this.lblDupIndexCount.Text = $"{this.botRecDuplicatesIndex} of {this.botRecDuplicates.Count} duplicates";
+            this.lblDupIndexCount.Text = $"{this.botRecDuplicatesIndex + 1} of {this.botRecDuplicates.Count} duplicates";
         }
 
         private void showNextError()
@@ -1230,20 +1744,47 @@ namespace RDEManager
             DataTable errorTbl = this.records.AsEnumerable().Where((row, index) => index == errorRecordIndex).CopyToDataTable();
 
             this.viewRecordsBinding.DataSource = errorTbl;
-
-            if (this.dgvRecordsView.DataSource == null)
-            {
-                this.dgvRecordsView.DataSource = viewRecordsBinding;
-            }
+            this.dgvRecordsView.DataSource = this.viewRecordsBinding;
 
             this.lblErrorRowIndex.Text = $"error in row {this.errorRecordIndex + 1} of {this.records.Rows.Count}";
             this.lblErrorRowIndex.Visible = true;
         }
 
+        private void GetFilesRecursive(string targetDirectory, List<string> files)
+        {
+
+
+            // Process the list of files found in the directory.
+            string[] fileEntries = Directory.GetFiles(targetDirectory);
+            foreach (string fileName in fileEntries)
+                files.Add(fileName);
+
+            // Recurse into subdirectories of this directory.
+            string[] subdirectoryEntries = Directory.GetDirectories(targetDirectory);
+            foreach (string subdirectory in subdirectoryEntries)
+            {
+                GetFilesRecursive(subdirectory, files);
+            }
+
+        }
+
+        // Insert logic for processing found files here.
+        public static void ProcessFile(string path)
+        {
+            Console.WriteLine("Processed file '{0}'.", path);
+        }
 
         //PROPERTIES
 
-        private string workingDir { get; set; }
+        private string workingDir { get; set; } //The source directory that the RDE files come from
+
+        public string modalMessage { get; set; }
+
+        private DataTable templateSchema { get; set; } //the schema of the first DBF file imported, for checking other files and for use on save
+        private List<string> templateColNames { get; set; } //the column names from the schema for checking additional files imported
+        private List<string> templateColTypes { get; set; }
+        private List<string> tablesNotAdded { get; set; } //to keep a list of tables where adding records failed - we are into serious state management here...
+
 
         //data
         private DataTable records { get; set; }
@@ -1253,6 +1794,10 @@ namespace RDEManager
         private List<BotanicalRecordDuplicateTracker> botRecDuplicates { get; set; }
         private bool dupsSearched { get; set; }
         private int botRecDuplicatesIndex { get; set; }
+        private int identicalDupsDeletedCount { get; set; }
+
+        private List<string> peopleChecked { get; set; } //for names not in people but accepted by the user
+        private List<string> missingColumnsToIgnore { get; set; } //for schema checks during RDE file import
 
         private DataTable viewRecords { get; set; }
         private BindingSource viewRecordsBinding { get; set; }

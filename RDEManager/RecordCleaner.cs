@@ -39,7 +39,17 @@ namespace RDEManager
         {
 
             int countBefore = records.Rows.Count;
-            records = records.DefaultView.ToTable(true);
+
+            try
+            {
+                records = records.DefaultView.ToTable(true); //this removes any duplicates
+            }
+            catch(Exception ex)
+            {
+                throw ex;
+            }
+
+            
             int countAfter = records.Rows.Count;
 
             int duplicates = countBefore - countAfter;
@@ -463,7 +473,7 @@ namespace RDEManager
                 string country = row["country"].ToString();
                 if (!String.IsNullOrEmpty(country))
                 {
-                    string locality = row["localitynotes"].ToString();
+                    string locality = row["locnotes"].ToString();
                     for (int i = 0; i < countryNames.Count; i++)
                     {
                         if (locality.ToLower().Contains(countryNames[i].ToLower()))

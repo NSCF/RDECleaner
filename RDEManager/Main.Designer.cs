@@ -52,7 +52,6 @@
             this.dgvRecordsView = new System.Windows.Forms.DataGridView();
             this.btnNextDuplicate = new System.Windows.Forms.Button();
             this.lblDupsCount = new System.Windows.Forms.Label();
-            this.btnTestSomething = new System.Windows.Forms.Button();
             this.lblDupIndexCount = new System.Windows.Forms.Label();
             this.rtbReportErrors = new System.Windows.Forms.RichTextBox();
             this.lblReportErrors = new System.Windows.Forms.Label();
@@ -75,13 +74,25 @@
             this.btnCheckTaxa = new System.Windows.Forms.Button();
             this.btnClearRecords = new System.Windows.Forms.Button();
             this.btnFindCaptureErrors = new System.Windows.Forms.Button();
+            this.pictureBox1 = new System.Windows.Forms.PictureBox();
+            this.pictureBox2 = new System.Windows.Forms.PictureBox();
+            this.pictureBox3 = new System.Windows.Forms.PictureBox();
+            this.btnShowImage = new System.Windows.Forms.Button();
+            this.label1 = new System.Windows.Forms.Label();
+            this.btnChooseSchema = new System.Windows.Forms.Button();
+            this.txtSchemaFile = new System.Windows.Forms.TextBox();
+            this.lblSchemaFields = new System.Windows.Forms.Label();
+            this.btnConfirmPeople = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.dgvRecordsView)).BeginInit();
             this.gbCollNumberOptions.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox3)).BeginInit();
             this.SuspendLayout();
             // 
             // txtChooseDBF
             // 
-            this.txtChooseDBF.Location = new System.Drawing.Point(17, 51);
+            this.txtChooseDBF.Location = new System.Drawing.Point(18, 120);
             this.txtChooseDBF.Name = "txtChooseDBF";
             this.txtChooseDBF.Size = new System.Drawing.Size(734, 20);
             this.txtChooseDBF.TabIndex = 10;
@@ -90,7 +101,7 @@
             // 
             this.btnChooseDBF.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnChooseDBF.BackgroundImage")));
             this.btnChooseDBF.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.btnChooseDBF.Location = new System.Drawing.Point(216, 17);
+            this.btnChooseDBF.Location = new System.Drawing.Point(217, 86);
             this.btnChooseDBF.Name = "btnChooseDBF";
             this.btnChooseDBF.Size = new System.Drawing.Size(43, 30);
             this.btnChooseDBF.TabIndex = 9;
@@ -101,7 +112,7 @@
             // 
             this.lblChooseDBF.AutoSize = true;
             this.lblChooseDBF.Font = new System.Drawing.Font("Microsoft Sans Serif", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblChooseDBF.Location = new System.Drawing.Point(12, 23);
+            this.lblChooseDBF.Location = new System.Drawing.Point(13, 92);
             this.lblChooseDBF.Name = "lblChooseDBF";
             this.lblChooseDBF.Size = new System.Drawing.Size(203, 25);
             this.lblChooseDBF.TabIndex = 8;
@@ -110,9 +121,9 @@
             // btnCheckDuplicates
             // 
             this.btnCheckDuplicates.Enabled = false;
-            this.btnCheckDuplicates.Location = new System.Drawing.Point(17, 366);
+            this.btnCheckDuplicates.Location = new System.Drawing.Point(18, 435);
             this.btnCheckDuplicates.Name = "btnCheckDuplicates";
-            this.btnCheckDuplicates.Size = new System.Drawing.Size(204, 29);
+            this.btnCheckDuplicates.Size = new System.Drawing.Size(149, 29);
             this.btnCheckDuplicates.TabIndex = 11;
             this.btnCheckDuplicates.Text = "Check duplicates";
             this.btnCheckDuplicates.UseVisualStyleBackColor = true;
@@ -121,7 +132,7 @@
             // lblNumberOfRecords
             // 
             this.lblNumberOfRecords.AutoSize = true;
-            this.lblNumberOfRecords.Location = new System.Drawing.Point(502, 26);
+            this.lblNumberOfRecords.Location = new System.Drawing.Point(503, 95);
             this.lblNumberOfRecords.Name = "lblNumberOfRecords";
             this.lblNumberOfRecords.Size = new System.Drawing.Size(97, 13);
             this.lblNumberOfRecords.TabIndex = 12;
@@ -134,7 +145,7 @@
             // btnAddDBFData
             // 
             this.btnAddDBFData.Enabled = false;
-            this.btnAddDBFData.Location = new System.Drawing.Point(281, 18);
+            this.btnAddDBFData.Location = new System.Drawing.Point(282, 87);
             this.btnAddDBFData.Name = "btnAddDBFData";
             this.btnAddDBFData.Size = new System.Drawing.Size(204, 29);
             this.btnAddDBFData.TabIndex = 13;
@@ -144,7 +155,7 @@
             // 
             // txtImageFolder
             // 
-            this.txtImageFolder.Location = new System.Drawing.Point(17, 112);
+            this.txtImageFolder.Location = new System.Drawing.Point(18, 181);
             this.txtImageFolder.Name = "txtImageFolder";
             this.txtImageFolder.Size = new System.Drawing.Size(734, 20);
             this.txtImageFolder.TabIndex = 21;
@@ -153,8 +164,7 @@
             // 
             this.btnChooseImageFolder.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnChooseImageFolder.BackgroundImage")));
             this.btnChooseImageFolder.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.btnChooseImageFolder.Enabled = false;
-            this.btnChooseImageFolder.Location = new System.Drawing.Point(172, 79);
+            this.btnChooseImageFolder.Location = new System.Drawing.Point(173, 148);
             this.btnChooseImageFolder.Name = "btnChooseImageFolder";
             this.btnChooseImageFolder.Size = new System.Drawing.Size(43, 30);
             this.btnChooseImageFolder.TabIndex = 20;
@@ -165,7 +175,7 @@
             // 
             this.label3.AutoSize = true;
             this.label3.Font = new System.Drawing.Font("Microsoft Sans Serif", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label3.Location = new System.Drawing.Point(12, 84);
+            this.label3.Location = new System.Drawing.Point(13, 153);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(154, 25);
             this.label3.TabIndex = 19;
@@ -173,7 +183,7 @@
             // 
             // txtTaxonBackbone
             // 
-            this.txtTaxonBackbone.Location = new System.Drawing.Point(17, 171);
+            this.txtTaxonBackbone.Location = new System.Drawing.Point(18, 240);
             this.txtTaxonBackbone.Name = "txtTaxonBackbone";
             this.txtTaxonBackbone.Size = new System.Drawing.Size(734, 20);
             this.txtTaxonBackbone.TabIndex = 24;
@@ -182,7 +192,7 @@
             // 
             this.btnChooseTaxonBackbone.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnChooseTaxonBackbone.BackgroundImage")));
             this.btnChooseTaxonBackbone.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.btnChooseTaxonBackbone.Location = new System.Drawing.Point(281, 138);
+            this.btnChooseTaxonBackbone.Location = new System.Drawing.Point(282, 207);
             this.btnChooseTaxonBackbone.Name = "btnChooseTaxonBackbone";
             this.btnChooseTaxonBackbone.Size = new System.Drawing.Size(43, 30);
             this.btnChooseTaxonBackbone.TabIndex = 23;
@@ -193,7 +203,7 @@
             // 
             this.label4.AutoSize = true;
             this.label4.Font = new System.Drawing.Font("Microsoft Sans Serif", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label4.Location = new System.Drawing.Point(12, 143);
+            this.label4.Location = new System.Drawing.Point(13, 212);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(263, 25);
             this.label4.TabIndex = 22;
@@ -202,14 +212,14 @@
             // lblNoTaxa
             // 
             this.lblNoTaxa.AutoSize = true;
-            this.lblNoTaxa.Location = new System.Drawing.Point(343, 147);
+            this.lblNoTaxa.Location = new System.Drawing.Point(344, 216);
             this.lblNoTaxa.Name = "lblNoTaxa";
             this.lblNoTaxa.Size = new System.Drawing.Size(0, 13);
             this.lblNoTaxa.TabIndex = 25;
             // 
             // txtQDSCountriesFile
             // 
-            this.txtQDSCountriesFile.Location = new System.Drawing.Point(17, 231);
+            this.txtQDSCountriesFile.Location = new System.Drawing.Point(18, 300);
             this.txtQDSCountriesFile.Name = "txtQDSCountriesFile";
             this.txtQDSCountriesFile.Size = new System.Drawing.Size(734, 20);
             this.txtQDSCountriesFile.TabIndex = 29;
@@ -219,7 +229,7 @@
             this.btnChooseQDSCountries.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnChooseQDSCountries.BackgroundImage")));
             this.btnChooseQDSCountries.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.btnChooseQDSCountries.Enabled = false;
-            this.btnChooseQDSCountries.Location = new System.Drawing.Point(281, 198);
+            this.btnChooseQDSCountries.Location = new System.Drawing.Point(282, 267);
             this.btnChooseQDSCountries.Name = "btnChooseQDSCountries";
             this.btnChooseQDSCountries.Size = new System.Drawing.Size(43, 30);
             this.btnChooseQDSCountries.TabIndex = 28;
@@ -230,7 +240,7 @@
             // 
             this.lblChooseQDSCountries.AutoSize = true;
             this.lblChooseQDSCountries.Font = new System.Drawing.Font("Microsoft Sans Serif", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblChooseQDSCountries.Location = new System.Drawing.Point(12, 203);
+            this.lblChooseQDSCountries.Location = new System.Drawing.Point(13, 272);
             this.lblChooseQDSCountries.Name = "lblChooseQDSCountries";
             this.lblChooseQDSCountries.Size = new System.Drawing.Size(248, 25);
             this.lblChooseQDSCountries.TabIndex = 27;
@@ -238,7 +248,7 @@
             // 
             // txtPeopleTable
             // 
-            this.txtPeopleTable.Location = new System.Drawing.Point(17, 290);
+            this.txtPeopleTable.Location = new System.Drawing.Point(18, 359);
             this.txtPeopleTable.Name = "txtPeopleTable";
             this.txtPeopleTable.Size = new System.Drawing.Size(734, 20);
             this.txtPeopleTable.TabIndex = 32;
@@ -248,7 +258,7 @@
             this.btnChoosePeople.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnChoosePeople.BackgroundImage")));
             this.btnChoosePeople.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.btnChoosePeople.Enabled = false;
-            this.btnChoosePeople.Location = new System.Drawing.Point(281, 257);
+            this.btnChoosePeople.Location = new System.Drawing.Point(282, 326);
             this.btnChoosePeople.Name = "btnChoosePeople";
             this.btnChoosePeople.Size = new System.Drawing.Size(43, 30);
             this.btnChoosePeople.TabIndex = 31;
@@ -259,7 +269,7 @@
             // 
             this.lblChoosePeople.AutoSize = true;
             this.lblChoosePeople.Font = new System.Drawing.Font("Microsoft Sans Serif", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblChoosePeople.Location = new System.Drawing.Point(12, 262);
+            this.lblChoosePeople.Location = new System.Drawing.Point(13, 331);
             this.lblChoosePeople.Name = "lblChoosePeople";
             this.lblChoosePeople.Size = new System.Drawing.Size(230, 25);
             this.lblChoosePeople.TabIndex = 30;
@@ -268,17 +278,16 @@
             // dgvRecordsView
             // 
             this.dgvRecordsView.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvRecordsView.Location = new System.Drawing.Point(20, 510);
+            this.dgvRecordsView.Location = new System.Drawing.Point(21, 579);
             this.dgvRecordsView.Name = "dgvRecordsView";
-            this.dgvRecordsView.Size = new System.Drawing.Size(1421, 171);
+            this.dgvRecordsView.Size = new System.Drawing.Size(1138, 171);
             this.dgvRecordsView.TabIndex = 33;
-            this.dgvRecordsView.SelectionChanged += new System.EventHandler(this.dgvRecordsView_SelectionChanged);
             this.dgvRecordsView.KeyDown += new System.Windows.Forms.KeyEventHandler(this.dgvRecordsView_KeyDown);
             // 
             // btnNextDuplicate
             // 
             this.btnNextDuplicate.Enabled = false;
-            this.btnNextDuplicate.Location = new System.Drawing.Point(108, 477);
+            this.btnNextDuplicate.Location = new System.Drawing.Point(109, 546);
             this.btnNextDuplicate.Name = "btnNextDuplicate";
             this.btnNextDuplicate.Size = new System.Drawing.Size(204, 27);
             this.btnNextDuplicate.TabIndex = 34;
@@ -289,43 +298,32 @@
             // lblDupsCount
             // 
             this.lblDupsCount.AutoSize = true;
-            this.lblDupsCount.Location = new System.Drawing.Point(17, 484);
+            this.lblDupsCount.Location = new System.Drawing.Point(18, 553);
             this.lblDupsCount.Name = "lblDupsCount";
             this.lblDupsCount.Size = new System.Drawing.Size(58, 13);
             this.lblDupsCount.TabIndex = 35;
             this.lblDupsCount.Text = "No. Dups: ";
             // 
-            // btnTestSomething
-            // 
-            this.btnTestSomething.Location = new System.Drawing.Point(954, 476);
-            this.btnTestSomething.Name = "btnTestSomething";
-            this.btnTestSomething.Size = new System.Drawing.Size(204, 29);
-            this.btnTestSomething.TabIndex = 36;
-            this.btnTestSomething.Text = "test something";
-            this.btnTestSomething.UseVisualStyleBackColor = true;
-            this.btnTestSomething.Visible = false;
-            this.btnTestSomething.Click += new System.EventHandler(this.btnTestSomething_Click);
-            // 
             // lblDupIndexCount
             // 
             this.lblDupIndexCount.AutoSize = true;
-            this.lblDupIndexCount.Location = new System.Drawing.Point(240, 408);
+            this.lblDupIndexCount.Location = new System.Drawing.Point(394, 433);
             this.lblDupIndexCount.Name = "lblDupIndexCount";
             this.lblDupIndexCount.Size = new System.Drawing.Size(0, 13);
             this.lblDupIndexCount.TabIndex = 37;
             // 
             // rtbReportErrors
             // 
-            this.rtbReportErrors.Location = new System.Drawing.Point(773, 51);
+            this.rtbReportErrors.Location = new System.Drawing.Point(774, 397);
             this.rtbReportErrors.Name = "rtbReportErrors";
-            this.rtbReportErrors.Size = new System.Drawing.Size(385, 344);
+            this.rtbReportErrors.Size = new System.Drawing.Size(385, 84);
             this.rtbReportErrors.TabIndex = 38;
             this.rtbReportErrors.Text = "";
             // 
             // lblReportErrors
             // 
             this.lblReportErrors.AutoSize = true;
-            this.lblReportErrors.Location = new System.Drawing.Point(770, 23);
+            this.lblReportErrors.Location = new System.Drawing.Point(781, 381);
             this.lblReportErrors.Name = "lblReportErrors";
             this.lblReportErrors.Size = new System.Drawing.Size(76, 13);
             this.lblReportErrors.TabIndex = 39;
@@ -334,7 +332,7 @@
             // btnDeleteRows
             // 
             this.btnDeleteRows.Enabled = false;
-            this.btnDeleteRows.Location = new System.Drawing.Point(528, 477);
+            this.btnDeleteRows.Location = new System.Drawing.Point(529, 546);
             this.btnDeleteRows.Name = "btnDeleteRows";
             this.btnDeleteRows.Size = new System.Drawing.Size(204, 27);
             this.btnDeleteRows.TabIndex = 40;
@@ -345,7 +343,7 @@
             // btnMergeDups
             // 
             this.btnMergeDups.Enabled = false;
-            this.btnMergeDups.Location = new System.Drawing.Point(318, 477);
+            this.btnMergeDups.Location = new System.Drawing.Point(319, 546);
             this.btnMergeDups.Name = "btnMergeDups";
             this.btnMergeDups.Size = new System.Drawing.Size(204, 27);
             this.btnMergeDups.TabIndex = 41;
@@ -355,9 +353,10 @@
             // 
             // btnUpdateMissingData
             // 
-            this.btnUpdateMissingData.Location = new System.Drawing.Point(243, 331);
+            this.btnUpdateMissingData.Enabled = false;
+            this.btnUpdateMissingData.Location = new System.Drawing.Point(404, 486);
             this.btnUpdateMissingData.Name = "btnUpdateMissingData";
-            this.btnUpdateMissingData.Size = new System.Drawing.Size(204, 29);
+            this.btnUpdateMissingData.Size = new System.Drawing.Size(149, 29);
             this.btnUpdateMissingData.TabIndex = 42;
             this.btnUpdateMissingData.Text = "Update missing fields";
             this.btnUpdateMissingData.UseVisualStyleBackColor = true;
@@ -368,9 +367,9 @@
             this.gbCollNumberOptions.Controls.Add(this.rbNone);
             this.gbCollNumberOptions.Controls.Add(this.rbNumberToSN);
             this.gbCollNumberOptions.Controls.Add(this.rbNumberFromBarcode);
-            this.gbCollNumberOptions.Location = new System.Drawing.Point(243, 361);
+            this.gbCollNumberOptions.Location = new System.Drawing.Point(397, 386);
             this.gbCollNumberOptions.Name = "gbCollNumberOptions";
-            this.gbCollNumberOptions.Size = new System.Drawing.Size(200, 71);
+            this.gbCollNumberOptions.Size = new System.Drawing.Size(167, 71);
             this.gbCollNumberOptions.TabIndex = 43;
             this.gbCollNumberOptions.TabStop = false;
             // 
@@ -409,20 +408,20 @@
             // btnFindQDSCoordErrors
             // 
             this.btnFindQDSCoordErrors.Enabled = false;
-            this.btnFindQDSCoordErrors.Location = new System.Drawing.Point(469, 331);
+            this.btnFindQDSCoordErrors.Location = new System.Drawing.Point(603, 434);
             this.btnFindQDSCoordErrors.Name = "btnFindQDSCoordErrors";
-            this.btnFindQDSCoordErrors.Size = new System.Drawing.Size(204, 29);
+            this.btnFindQDSCoordErrors.Size = new System.Drawing.Size(149, 29);
             this.btnFindQDSCoordErrors.TabIndex = 44;
-            this.btnFindQDSCoordErrors.Text = "Check new coords and QDSs";
+            this.btnFindQDSCoordErrors.Text = "Check coords and QDSs";
             this.btnFindQDSCoordErrors.UseVisualStyleBackColor = true;
             this.btnFindQDSCoordErrors.Click += new System.EventHandler(this.btnFindQDSCoordErrors_Click);
             // 
             // btnFindMissingRecords
             // 
             this.btnFindMissingRecords.Enabled = false;
-            this.btnFindMissingRecords.Location = new System.Drawing.Point(17, 331);
+            this.btnFindMissingRecords.Location = new System.Drawing.Point(18, 400);
             this.btnFindMissingRecords.Name = "btnFindMissingRecords";
-            this.btnFindMissingRecords.Size = new System.Drawing.Size(204, 29);
+            this.btnFindMissingRecords.Size = new System.Drawing.Size(149, 29);
             this.btnFindMissingRecords.TabIndex = 45;
             this.btnFindMissingRecords.Text = "Check missing records";
             this.btnFindMissingRecords.UseVisualStyleBackColor = true;
@@ -431,9 +430,9 @@
             // btnNextRowWithErrors
             // 
             this.btnNextRowWithErrors.Enabled = false;
-            this.btnNextRowWithErrors.Location = new System.Drawing.Point(954, 401);
+            this.btnNextRowWithErrors.Location = new System.Drawing.Point(1000, 486);
             this.btnNextRowWithErrors.Name = "btnNextRowWithErrors";
-            this.btnNextRowWithErrors.Size = new System.Drawing.Size(204, 29);
+            this.btnNextRowWithErrors.Size = new System.Drawing.Size(159, 29);
             this.btnNextRowWithErrors.TabIndex = 49;
             this.btnNextRowWithErrors.Text = "Next error...";
             this.btnNextRowWithErrors.UseVisualStyleBackColor = true;
@@ -443,7 +442,7 @@
             // 
             this.btnSaveChanges.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnSaveChanges.BackgroundImage")));
             this.btnSaveChanges.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.btnSaveChanges.Location = new System.Drawing.Point(1353, 690);
+            this.btnSaveChanges.Location = new System.Drawing.Point(1071, 756);
             this.btnSaveChanges.Name = "btnSaveChanges";
             this.btnSaveChanges.Size = new System.Drawing.Size(88, 70);
             this.btnSaveChanges.TabIndex = 50;
@@ -453,7 +452,7 @@
             // lblErrorRowIndex
             // 
             this.lblErrorRowIndex.AutoSize = true;
-            this.lblErrorRowIndex.Location = new System.Drawing.Point(780, 408);
+            this.lblErrorRowIndex.Location = new System.Drawing.Point(781, 530);
             this.lblErrorRowIndex.Name = "lblErrorRowIndex";
             this.lblErrorRowIndex.Size = new System.Drawing.Size(0, 13);
             this.lblErrorRowIndex.TabIndex = 51;
@@ -462,7 +461,7 @@
             // lblPeople
             // 
             this.lblPeople.AutoSize = true;
-            this.lblPeople.Location = new System.Drawing.Point(343, 266);
+            this.lblPeople.Location = new System.Drawing.Point(344, 335);
             this.lblPeople.Name = "lblPeople";
             this.lblPeople.Size = new System.Drawing.Size(0, 13);
             this.lblPeople.TabIndex = 52;
@@ -470,7 +469,7 @@
             // lblQDSCountries
             // 
             this.lblQDSCountries.AutoSize = true;
-            this.lblQDSCountries.Location = new System.Drawing.Point(334, 206);
+            this.lblQDSCountries.Location = new System.Drawing.Point(335, 275);
             this.lblQDSCountries.Name = "lblQDSCountries";
             this.lblQDSCountries.Size = new System.Drawing.Size(0, 13);
             this.lblQDSCountries.TabIndex = 53;
@@ -478,7 +477,7 @@
             // chkAddOrganization
             // 
             this.chkAddOrganization.AutoSize = true;
-            this.chkAddOrganization.Location = new System.Drawing.Point(244, 438);
+            this.chkAddOrganization.Location = new System.Drawing.Point(398, 463);
             this.chkAddOrganization.Name = "chkAddOrganization";
             this.chkAddOrganization.Size = new System.Drawing.Size(89, 17);
             this.chkAddOrganization.TabIndex = 54;
@@ -487,18 +486,18 @@
             // 
             // txtAddWho
             // 
-            this.txtAddWho.Location = new System.Drawing.Point(330, 436);
+            this.txtAddWho.Location = new System.Drawing.Point(484, 461);
             this.txtAddWho.Name = "txtAddWho";
-            this.txtAddWho.Size = new System.Drawing.Size(112, 20);
+            this.txtAddWho.Size = new System.Drawing.Size(80, 20);
             this.txtAddWho.TabIndex = 55;
             this.txtAddWho.Text = "NSCF";
             // 
             // btnCheckTaxa
             // 
             this.btnCheckTaxa.Enabled = false;
-            this.btnCheckTaxa.Location = new System.Drawing.Point(17, 400);
+            this.btnCheckTaxa.Location = new System.Drawing.Point(18, 469);
             this.btnCheckTaxa.Name = "btnCheckTaxa";
-            this.btnCheckTaxa.Size = new System.Drawing.Size(204, 29);
+            this.btnCheckTaxa.Size = new System.Drawing.Size(149, 29);
             this.btnCheckTaxa.TabIndex = 56;
             this.btnCheckTaxa.Text = "Check taxa";
             this.btnCheckTaxa.UseVisualStyleBackColor = true;
@@ -507,7 +506,7 @@
             // btnClearRecords
             // 
             this.btnClearRecords.Enabled = false;
-            this.btnClearRecords.Location = new System.Drawing.Point(672, 18);
+            this.btnClearRecords.Location = new System.Drawing.Point(673, 87);
             this.btnClearRecords.Name = "btnClearRecords";
             this.btnClearRecords.Size = new System.Drawing.Size(79, 29);
             this.btnClearRecords.TabIndex = 57;
@@ -518,19 +517,116 @@
             // btnFindCaptureErrors
             // 
             this.btnFindCaptureErrors.Enabled = false;
-            this.btnFindCaptureErrors.Location = new System.Drawing.Point(18, 435);
+            this.btnFindCaptureErrors.Location = new System.Drawing.Point(207, 435);
             this.btnFindCaptureErrors.Name = "btnFindCaptureErrors";
-            this.btnFindCaptureErrors.Size = new System.Drawing.Size(204, 29);
+            this.btnFindCaptureErrors.Size = new System.Drawing.Size(149, 29);
             this.btnFindCaptureErrors.TabIndex = 58;
             this.btnFindCaptureErrors.Text = "Check capture errors";
             this.btnFindCaptureErrors.UseVisualStyleBackColor = true;
             this.btnFindCaptureErrors.Click += new System.EventHandler(this.btnFindCaptureErrors_Click);
             // 
+            // pictureBox1
+            // 
+            this.pictureBox1.Image = global::RDEManager.Properties.Resources.rightarrow;
+            this.pictureBox1.Location = new System.Drawing.Point(178, 435);
+            this.pictureBox1.Name = "pictureBox1";
+            this.pictureBox1.Size = new System.Drawing.Size(29, 44);
+            this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
+            this.pictureBox1.TabIndex = 59;
+            this.pictureBox1.TabStop = false;
+            // 
+            // pictureBox2
+            // 
+            this.pictureBox2.Image = global::RDEManager.Properties.Resources.rightarrow;
+            this.pictureBox2.Location = new System.Drawing.Point(363, 433);
+            this.pictureBox2.Name = "pictureBox2";
+            this.pictureBox2.Size = new System.Drawing.Size(29, 44);
+            this.pictureBox2.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
+            this.pictureBox2.TabIndex = 60;
+            this.pictureBox2.TabStop = false;
+            // 
+            // pictureBox3
+            // 
+            this.pictureBox3.Image = global::RDEManager.Properties.Resources.rightarrow;
+            this.pictureBox3.Location = new System.Drawing.Point(571, 433);
+            this.pictureBox3.Name = "pictureBox3";
+            this.pictureBox3.Size = new System.Drawing.Size(29, 44);
+            this.pictureBox3.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
+            this.pictureBox3.TabIndex = 61;
+            this.pictureBox3.TabStop = false;
+            // 
+            // btnShowImage
+            // 
+            this.btnShowImage.Enabled = false;
+            this.btnShowImage.Location = new System.Drawing.Point(1000, 522);
+            this.btnShowImage.Name = "btnShowImage";
+            this.btnShowImage.Size = new System.Drawing.Size(159, 29);
+            this.btnShowImage.TabIndex = 62;
+            this.btnShowImage.Text = "Show image...";
+            this.btnShowImage.UseVisualStyleBackColor = true;
+            this.btnShowImage.Click += new System.EventHandler(this.btnShowImage_Click);
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 15F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label1.Location = new System.Drawing.Point(12, 40);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(287, 25);
+            this.label1.TabIndex = 63;
+            this.label1.Text = "Select the schema template file:";
+            // 
+            // btnChooseSchema
+            // 
+            this.btnChooseSchema.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("btnChooseSchema.BackgroundImage")));
+            this.btnChooseSchema.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.btnChooseSchema.Location = new System.Drawing.Point(301, 35);
+            this.btnChooseSchema.Name = "btnChooseSchema";
+            this.btnChooseSchema.Size = new System.Drawing.Size(43, 30);
+            this.btnChooseSchema.TabIndex = 64;
+            this.btnChooseSchema.UseVisualStyleBackColor = true;
+            this.btnChooseSchema.Click += new System.EventHandler(this.btnChooseSchema_Click);
+            // 
+            // txtSchemaFile
+            // 
+            this.txtSchemaFile.Location = new System.Drawing.Point(350, 40);
+            this.txtSchemaFile.Name = "txtSchemaFile";
+            this.txtSchemaFile.Size = new System.Drawing.Size(389, 20);
+            this.txtSchemaFile.TabIndex = 65;
+            // 
+            // lblSchemaFields
+            // 
+            this.lblSchemaFields.AutoSize = true;
+            this.lblSchemaFields.Location = new System.Drawing.Point(745, 43);
+            this.lblSchemaFields.Name = "lblSchemaFields";
+            this.lblSchemaFields.Size = new System.Drawing.Size(0, 13);
+            this.lblSchemaFields.TabIndex = 66;
+            // 
+            // btnConfirmPeople
+            // 
+            this.btnConfirmPeople.Enabled = false;
+            this.btnConfirmPeople.Location = new System.Drawing.Point(774, 486);
+            this.btnConfirmPeople.Name = "btnConfirmPeople";
+            this.btnConfirmPeople.Size = new System.Drawing.Size(159, 29);
+            this.btnConfirmPeople.TabIndex = 67;
+            this.btnConfirmPeople.Text = "These names are correct...";
+            this.btnConfirmPeople.UseVisualStyleBackColor = true;
+            this.btnConfirmPeople.Click += new System.EventHandler(this.btnConfirmPeople_Click);
+            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1472, 761);
+            this.ClientSize = new System.Drawing.Size(1171, 838);
+            this.Controls.Add(this.btnConfirmPeople);
+            this.Controls.Add(this.lblSchemaFields);
+            this.Controls.Add(this.txtSchemaFile);
+            this.Controls.Add(this.btnChooseSchema);
+            this.Controls.Add(this.label1);
+            this.Controls.Add(this.btnShowImage);
+            this.Controls.Add(this.pictureBox3);
+            this.Controls.Add(this.pictureBox2);
+            this.Controls.Add(this.pictureBox1);
             this.Controls.Add(this.btnFindCaptureErrors);
             this.Controls.Add(this.btnClearRecords);
             this.Controls.Add(this.btnCheckTaxa);
@@ -550,7 +646,6 @@
             this.Controls.Add(this.lblReportErrors);
             this.Controls.Add(this.rtbReportErrors);
             this.Controls.Add(this.lblDupIndexCount);
-            this.Controls.Add(this.btnTestSomething);
             this.Controls.Add(this.lblDupsCount);
             this.Controls.Add(this.btnNextDuplicate);
             this.Controls.Add(this.dgvRecordsView);
@@ -574,10 +669,14 @@
             this.Controls.Add(this.btnChooseDBF);
             this.Controls.Add(this.lblChooseDBF);
             this.Name = "Main";
-            this.Text = "RDEManager";
+            this.Text = "RDE Cleaner";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Main_FormClosing);
             ((System.ComponentModel.ISupportInitialize)(this.dgvRecordsView)).EndInit();
             this.gbCollNumberOptions.ResumeLayout(false);
             this.gbCollNumberOptions.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox3)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -608,7 +707,6 @@
         private System.Windows.Forms.DataGridView dgvRecordsView;
         private System.Windows.Forms.Button btnNextDuplicate;
         private System.Windows.Forms.Label lblDupsCount;
-        private System.Windows.Forms.Button btnTestSomething;
         private System.Windows.Forms.Label lblDupIndexCount;
         private System.Windows.Forms.RichTextBox rtbReportErrors;
         private System.Windows.Forms.Label lblReportErrors;
@@ -631,6 +729,15 @@
         private System.Windows.Forms.Button btnCheckTaxa;
         private System.Windows.Forms.Button btnClearRecords;
         private System.Windows.Forms.Button btnFindCaptureErrors;
+        private System.Windows.Forms.PictureBox pictureBox1;
+        private System.Windows.Forms.PictureBox pictureBox2;
+        private System.Windows.Forms.PictureBox pictureBox3;
+        private System.Windows.Forms.Button btnShowImage;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Button btnChooseSchema;
+        private System.Windows.Forms.TextBox txtSchemaFile;
+        private System.Windows.Forms.Label lblSchemaFields;
+        private System.Windows.Forms.Button btnConfirmPeople;
     }
 }
 

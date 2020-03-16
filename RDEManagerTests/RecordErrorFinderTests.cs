@@ -22,6 +22,7 @@ namespace RDEManagerTests
             DataRow row = getTestCoordsRow();
 
             row["llunit"] = "D";
+            row["llres"] = "250m";
             row["lat"] = "22.24531";
             row["long"] = "35.24234";
             row["ew"] = "E";
@@ -51,6 +52,7 @@ namespace RDEManagerTests
                 row["ns"] = "S";
                 row["ew"] = "E";
                 row["llunit"] = "DD";
+                row["llres"] = "250m";
                 row["qds"] = test.qds;
                 row["country"] = test.country;
 
@@ -75,6 +77,7 @@ namespace RDEManagerTests
             row["lat"] = "35.2145";
             row["long"] = "25.24563";
             row["llunit"] = "DD";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -95,6 +98,7 @@ namespace RDEManagerTests
             row["lat"] = "";
             row["long"] = "25.24563";
             row["llunit"] = "DD";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -133,6 +137,7 @@ namespace RDEManagerTests
             row["lat"] = "21.21245";
             row["long"] = "0.0000";
             row["llunit"] = "DD";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -151,6 +156,7 @@ namespace RDEManagerTests
             row["lat"] = "91.11245";
             row["long"] = "32.5479";
             row["llunit"] = "DD";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -169,6 +175,7 @@ namespace RDEManagerTests
             row["lat"] = "21.71245";
             row["long"] = "32.5479";
             row["llunit"] = "DM";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -187,6 +194,7 @@ namespace RDEManagerTests
             row["lat"] = "21.21745";
             row["long"] = "32.5479";
             row["llunit"] = "DMS";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -205,6 +213,7 @@ namespace RDEManagerTests
             row["lat"] = "21.21245";
             row["long"] = "32.5479";
             row["llunit"] = "a unit!!";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -223,6 +232,7 @@ namespace RDEManagerTests
             row["lat"] = "21.21245";
             row["long"] = "32.5479";
             row["llunit"] = "DM";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "34";
 
@@ -244,6 +254,7 @@ namespace RDEManagerTests
             row["lat"] = "24.24578";
             row["long"] = "32.25479";
             row["llunit"] = "DD";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -264,6 +275,7 @@ namespace RDEManagerTests
             row["lat"] = "24.24578";
             row["long"] = "32.25479";
             row["llunit"] = "DM";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -286,6 +298,7 @@ namespace RDEManagerTests
             row["lat"] = "24.24578";
             row["long"] = "32.25479";
             row["llunit"] = "DMS";
+            row["llres"] = "250m";
             row["ew"] = "E";
             row["ns"] = "S";
 
@@ -324,19 +337,19 @@ namespace RDEManagerTests
 
             //case, one is not in
             string testAgents = "Alan, K.J.; Bob, T.M.G.";
-            string notIn = RecordErrorFinder.getAgentNamesNotInList(testAgents, masterAgents);
+            string notIn = RecordErrorFinder.getAgentNamesNotInList(testAgents, masterAgents, new List<string>());
             Assert.AreEqual(notIn, "Alan, K.J.");
 
 
             //case all are in
             testAgents = "Doe, J.; Bob, T.M.G.";
-            notIn = RecordErrorFinder.getAgentNamesNotInList(testAgents, masterAgents);
+            notIn = RecordErrorFinder.getAgentNamesNotInList(testAgents, masterAgents, new List<string>());
             Assert.AreEqual(notIn, "");
 
 
             //case all not in
             testAgents = "Baggins, F.; Foster, G.";
-            notIn = RecordErrorFinder.getAgentNamesNotInList(testAgents, masterAgents);
+            notIn = RecordErrorFinder.getAgentNamesNotInList(testAgents, masterAgents, new List<string>());
             Assert.AreEqual(notIn, Regex.Replace(testAgents, @"\s+", " ")); //we need to regex to remove accidental spaces in testAgents
 
         }
@@ -372,6 +385,54 @@ namespace RDEManagerTests
             {
                 Assert.Fail();
             }
+
+        }
+
+        [TestMethod()]
+        public void DateIsValidTest()
+        {
+
+
+            if (!RecordErrorFinder.dateIsValid("0", "0", "0"))
+            {
+                Assert.Fail("Failed for all zeros");
+            }
+
+            if (!RecordErrorFinder.dateIsValid("1923", "0", "0"))
+            {
+                Assert.Fail("Failed valid year, no month, no day");
+            }
+
+            if (RecordErrorFinder.dateIsValid("1823", "0", "0"))
+            {
+                Assert.Fail("Failed for invalid year");
+            }
+
+            if (RecordErrorFinder.dateIsValid("0", "3", "0"))
+            {
+                Assert.Fail("Failed for no year, valid month, no day");
+            }
+
+            if (RecordErrorFinder.dateIsValid("1923", "24", "0"))
+            {
+                Assert.Fail("Failed for valid year, invalid month");
+            }
+
+            if (RecordErrorFinder.dateIsValid("1923", "0", "22"))
+            {
+                Assert.Fail("Failed for valid year, no month, valid day");
+            }
+
+            if (RecordErrorFinder.dateIsValid("1923", "12", "42"))
+            {
+                Assert.Fail("Failed for valid year, valid month, invalid day");
+            }
+
+            if (!RecordErrorFinder.dateIsValid("1923", "12", "22"))
+            {
+                Assert.Fail("Failed for valid date");
+            }
+
 
         }
 
@@ -472,6 +533,18 @@ namespace RDEManagerTests
                 Assert.Fail();
             }
 
+            row["detdd"] = "0";
+            row["detmm"] = "0";
+            row["detyy"] = "0";
+            row["colldd"] = "12";
+            row["collmm"] = "4";
+            row["collyy"] = "1973";
+
+            if (!RecordErrorFinder.detDateAfterCollDate(row))
+            {
+                Assert.Fail();
+            }
+
         }
 
         //HELPERS
@@ -484,6 +557,7 @@ namespace RDEManagerTests
             dt.Columns.Add("long", typeof(string));
             dt.Columns.Add("ew", typeof(string));
             dt.Columns.Add("llunit", typeof(string));
+            dt.Columns.Add("llres", typeof(string));
             dt.Columns.Add("qds", typeof(string));
             dt.Columns.Add("country", typeof(string));
             DataRow row = dt.NewRow();

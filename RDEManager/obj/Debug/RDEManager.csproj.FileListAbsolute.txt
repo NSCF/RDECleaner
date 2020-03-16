@@ -29,3 +29,4 @@ C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\Newtonsoft.Js
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.csproj.CopyComplete
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\FileHelpers.dll
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\FileHelpers.xml
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.PleaseWait.resources

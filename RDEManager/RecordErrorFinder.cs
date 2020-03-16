@@ -105,6 +105,21 @@ namespace RDEManager
             return !String.IsNullOrEmpty(barcode);
         }
 
+        public static bool barcodeValid(DataRow row)
+        {
+            if (barcodeHasValue(row))
+            {
+                string barcode = row["barcode"].ToString().Trim();
+                Regex rx = new Regex(@"[0-9A-Za-z\-]*");
+                return rx.IsMatch(barcode);
+            }
+            else
+            {
+                return true; //there is no barcode value so this check is not required
+            }
+            
+        }
+
         //collector number should only be a number or s.n.
         //NOT TESTED
         public static bool numberIsAnIntegerOrSN(DataRow row)
@@ -224,72 +239,81 @@ namespace RDEManager
         //NOT TESTED
         public static string getRanksNotInBackbone(DataRow row, DataTable taxa)
         {
-            var taxonBackbone = taxa.AsEnumerable();
-
-            List<string> ranksNotIn = new List<string>();
-
-            var familyIn = taxonBackbone.Where(bbr => bbr["family"].ToString().Trim() == row["family"].ToString().Trim()).FirstOrDefault();
-            if (familyIn == null)
+            if(taxa != null && taxa.Rows.Count > 0)
             {
-                ranksNotIn.Add("family");
-            }
+                var taxonBackbone = taxa.AsEnumerable();
 
-            string genus = row["genus"].ToString().Trim();
-            if (!String.IsNullOrEmpty(genus))
-            {
-                var genusIn = taxonBackbone.Where(bbr => bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim()).FirstOrDefault();
-                if (genusIn == null)
+                List<string> ranksNotIn = new List<string>();
+
+                var familyIn = taxonBackbone.Where(bbr => bbr["family"].ToString().Trim() == row["family"].ToString().Trim()).FirstOrDefault();
+                if (familyIn == null)
                 {
-                    ranksNotIn.Add("genus");
+                    ranksNotIn.Add("family");
                 }
+
+                string genus = row["genus"].ToString().Trim();
+                if (!String.IsNullOrEmpty(genus))
+                {
+                    var genusIn = taxonBackbone.Where(bbr => bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim()).FirstOrDefault();
+                    if (genusIn == null)
+                    {
+                        ranksNotIn.Add("genus");
+                    }
+                }
+
+                string species = row["sp1"].ToString().Trim();
+                if (!String.IsNullOrEmpty(species))
+                {
+                    var speciesIn = taxonBackbone.Where(bbr =>
+                        bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim() &&
+                        bbr["sp1"].ToString().Trim() == row["sp1"].ToString().Trim()
+                    ).FirstOrDefault();
+
+                    if (speciesIn == null)
+                    {
+                        ranksNotIn.Add("sp1");
+                    }
+                }
+
+                string subspecies = row["sp2"].ToString().Trim();
+                if (!String.IsNullOrEmpty(subspecies))
+                {
+                    var subspeciesIn = taxonBackbone.Where(bbr =>
+                        bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim() &&
+                        bbr["sp1"].ToString().Trim() == row["sp1"].ToString().Trim() &&
+                        bbr["sp2"].ToString().Trim() == row["sp2"].ToString().Trim()
+                    ).FirstOrDefault();
+
+                    if (subspeciesIn == null)
+                    {
+                        ranksNotIn.Add("sp2");
+                    }
+                }
+
+                string variety = row["sp3"].ToString().Trim();
+                if (!String.IsNullOrEmpty(variety))
+                {
+                    var varietyIn = taxonBackbone.Where(bbr =>
+                        bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim() &&
+                        bbr["sp1"].ToString().Trim() == row["sp1"].ToString().Trim() &&
+                        bbr["sp2"].ToString().Trim() == row["sp2"].ToString().Trim() &&
+                        bbr["sp3"].ToString().Trim() == row["sp3"].ToString().Trim()
+                    ).FirstOrDefault();
+
+                    if (varietyIn == null)
+                    {
+                        ranksNotIn.Add("sp3");
+                    }
+                }
+
+                return String.Join("; ", ranksNotIn.ToArray());
             }
+            else
+            {
+                return "";
+            }
+
             
-            string species = row["sp1"].ToString().Trim();
-            if (!String.IsNullOrEmpty(species))
-            {
-                var speciesIn = taxonBackbone.Where(bbr =>
-                    bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim() &&
-                    bbr["sp1"].ToString().Trim() == row["sp1"].ToString().Trim()
-                ).FirstOrDefault();
-
-                if (speciesIn == null)
-                {
-                    ranksNotIn.Add("sp1");
-                }
-            }
-
-            string subspecies = row["sp2"].ToString().Trim();
-            if (!String.IsNullOrEmpty(subspecies))
-            {
-                var subspeciesIn = taxonBackbone.Where(bbr =>
-                    bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim() &&
-                    bbr["sp1"].ToString().Trim() == row["sp1"].ToString().Trim() &&
-                    bbr["sp2"].ToString().Trim() == row["sp2"].ToString().Trim()
-                ).FirstOrDefault();
-
-                if (subspeciesIn == null)
-                {
-                    ranksNotIn.Add("sp2");
-                }
-            }
-
-            string variety = row["sp3"].ToString().Trim();
-            if (!String.IsNullOrEmpty(variety))
-            {
-                var varietyIn = taxonBackbone.Where(bbr =>
-                    bbr["genus"].ToString().Trim() == row["genus"].ToString().Trim() &&
-                    bbr["sp1"].ToString().Trim() == row["sp1"].ToString().Trim() &&
-                    bbr["sp2"].ToString().Trim() == row["sp2"].ToString().Trim() &&
-                    bbr["sp3"].ToString().Trim() == row["sp3"].ToString().Trim()
-                ).FirstOrDefault();
-
-                if (varietyIn == null)
-                {
-                    ranksNotIn.Add("sp3");
-                }
-            }
-
-            return String.Join("; ", ranksNotIn.ToArray());
 
         }
 
@@ -413,7 +437,7 @@ namespace RDEManager
 
         //check all collectors in master table
         //NOT TESTED, getAgentNamesNotInList() is tested
-        public static string getCollectorsNotInList(DataRow row, DataTable masterAgents)
+        public static string getCollectorsNotInList(DataRow row, DataTable masterAgents, List<string> peopleChecked)
         {
             string collectors = row["collector"].ToString().Trim();
             string additional = row["addcoll"].ToString().Trim();
@@ -430,24 +454,23 @@ namespace RDEManager
             }
             else
             {
-                return getAgentNamesNotInList(collectors, masterAgents);
+                return getAgentNamesNotInList(collectors, masterAgents, peopleChecked);
             }
 
             
         }
 
         //check determiner in master table
-        public static bool isDeterminerInList(DataRow row, DataTable masterAgents)
+        public static string isDeterminerInList(DataRow row, DataTable masterAgents, List<string> peopleChecked)
         {
             string detby = row["detby"].ToString().Trim();
 
-            string result = getAgentNamesNotInList(detby, masterAgents);
-
-            return String.IsNullOrEmpty(result);
+            return getAgentNamesNotInList(detby, masterAgents, peopleChecked);
 
         }
 
         //THESE DATES ARE A NIGHTMARE!!
+        /*
         public static bool collYearIsValid(DataRow row)
         {
             string collYear = row["collyy"].ToString().Trim();
@@ -456,9 +479,9 @@ namespace RDEManager
 
         public static bool collMonthIsValid(DataRow row)
         {
+            string collYear = row["collyy"].ToString().Trim();
             string collMon = row["collmm"].ToString().Trim();
-            string collDay = row["colldd"].ToString().Trim();
-            return monthIsValid(collMon, collDay);
+            return monthIsValid(collYear, collMon);
         }
 
         public static bool collDayIsValid(DataRow row)
@@ -560,10 +583,104 @@ namespace RDEManager
         {
             return detYearIsValid(row) && detMonthIsValid(row) && detDayIsValid(row);
         }
+        */
+
+        public static bool detDateIsValid(DataRow row) 
+        {
+            string detDayStr = row["detdd"].ToString().Trim();
+            string detMonthStr = row["detmm"].ToString().Trim();
+            string detYearStr = row["detyy"].ToString().Trim();
+
+            return dateIsValid(detYearStr, detMonthStr, detDayStr);
+        }
+
+        public static bool collDateIsValid(DataRow row)
+        {
+            string collDayStr = row["colldd"].ToString().Trim();
+            string collMonthStr = row["collmm"].ToString().Trim();
+            string collYearStr = row["collyy"].ToString().Trim();
+
+            return dateIsValid(collYearStr, collMonthStr, collDayStr);
+        }
 
         public static bool detDateAfterCollDate(DataRow row)
         {
+            string detDayStr = row["detdd"].ToString().Trim();
+            string detMonthStr = row["detmm"].ToString().Trim();
+            string detYearStr = row["detyy"].ToString().Trim();
 
+            string collDayStr = row["colldd"].ToString().Trim();
+            string collMonthStr = row["collmm"].ToString().Trim();
+            string collYearStr = row["collyy"].ToString().Trim();
+
+            if (dateIsValid(detYearStr, detMonthStr, detDayStr) && dateIsValid(collYearStr, collMonthStr, collDayStr))
+            {
+                //we need to make sure we have actual dates at least a year for both
+                if(String.IsNullOrEmpty(detYearStr) || detYearStr == "0" || String.IsNullOrEmpty(collYearStr) || collYearStr == "0")
+                {
+                    return true; // no dates
+                }
+                else
+                {
+                    //make them all full dates and compare
+                    int detYear = int.Parse(detYearStr);
+
+                    int detMonth;
+                    if (String.IsNullOrEmpty(detMonthStr) || detMonthStr == "0")
+                    {
+                        detMonth = 12; //for dets we need to assume the first month of the year if only the year. 
+                    }
+                    else
+                    {
+                        detMonth = int.Parse(detMonthStr);
+                    }
+
+                    int detDay;
+                    if (String.IsNullOrEmpty(detDayStr) || detDayStr == "0")
+                    {
+                        detDay = DateTime.DaysInMonth(detYear, detMonth); //for dets we need to assume the first day of the month if no day
+                    }
+                    else
+                    {
+                        detDay = int.Parse(detDayStr);
+                    }
+
+                    DateTime detDate = new DateTime(detYear, detMonth, detDay);
+
+                    int collYear = int.Parse(collYearStr);
+
+                    int collMonth;
+                    if (String.IsNullOrEmpty(collMonthStr) || collMonthStr == "0")
+                    {
+                        collMonth = 1; // for collection dates we assume first month of the year if no month
+                    }
+                    else
+                    {
+                        collMonth = int.Parse(collMonthStr);
+                    }
+
+                    int collDay;
+                    if (String.IsNullOrEmpty(collDayStr) || collDayStr == "0")
+                    {
+                        collDay = 1; // for collection dates we assume first day of the month if no day
+                    }
+                    else
+                    {
+                        collDay = int.Parse(collDayStr);
+                    }
+
+                    DateTime collDate = new DateTime(collYear, collMonth, collDay);
+
+                    return detDate >= collDate;
+                }
+            }
+            else
+            {
+                return true; //we don't test
+            }
+
+
+            /* old
             if(collDateIsValid(row) && detDateIsValid(row))
             {
                 string detDayStr = row["detdd"].ToString().Trim();
@@ -628,8 +745,9 @@ namespace RDEManager
             }
             else
             {
-                throw new Exception("coll date or det date invalid");
+                return false; // because we will see the error for invalid dates in the list
             }
+            */
 
         }
 
@@ -644,17 +762,16 @@ namespace RDEManager
         }
 
         //find errors in lat, long and associated fields
-        //TESTED VIA coordsAreValiD()
+        //TESTED VIA coordsAreValid() suit of tests
         public static string getCoordErrors(DataRow row)
         {
 
             string latStr = row["lat"].ToString().Trim();
-            string ns = row["ns"].ToString().Trim();
             string lngStr = row["long"].ToString().Trim();
+            string ns = row["ns"].ToString().Trim();
             string ew = row["ew"].ToString().Trim();
             string unit = row["llunit"].ToString().Trim();
             string res = row["llres"].ToString().Trim();
-            string qds = row["qds"].ToString().Trim();
 
             List<string> coordErrors = new List<string>();
 
@@ -670,9 +787,9 @@ namespace RDEManager
             //they might both be empty
             if(String.IsNullOrEmpty(latStr) && String.IsNullOrEmpty(lngStr))
             {
-                if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit))
+                if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit) || !string.IsNullOrEmpty(res))
                 {
-                    return "ns, ew, and llunit should be empty if no coords captured";
+                    return "ns, ew, llrs and llunit should be empty if no coords captured";
                 }
                 else
                 {
@@ -685,9 +802,9 @@ namespace RDEManager
             {
 
                 string msg = "One of lat or long has a value and the other not. It must be both or neither";
-                if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit))
+                if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit) || !string.IsNullOrEmpty(res))
                 {
-                    return $"{msg}{Environment.NewLine}ns, ew, and llunit should be empty if no coords captured";
+                    return $"{msg}{Environment.NewLine}ns, ew, llres and llunit should be empty if no coords captured";
                 }
                 else
                 {
@@ -699,102 +816,89 @@ namespace RDEManager
             //silent else
             //lat and lng must be numbers represented as strings
             //this gets complicated because we can't carry on if this fails
-            double lat;
-            double lng;
-            bool carryOn = true;
-            try
-            {
-                lat = double.Parse(latStr);
-            }
-            catch
+            double lat = -1.0;
+            double lng = -1.0;
+            bool latValid = double.TryParse(latStr, out lat);
+            bool lngValid = double.TryParse(lngStr, out lng);
+
+            if (!latValid)
             {
                 coordErrors.Add("lat is not a valid number");
-                carryOn = false;
             }
 
-            try
-            {
-                lng = double.Parse(lngStr);
-
-            }
-            catch
+            if (!lngValid)
             {
                 coordErrors.Add("long is not a valid number");
-                carryOn = false;
             }
 
-            //check the other fields while we're here
-            //unit must be one of DD, DM or DMS
-            string[] validUnits = { "DD", "DMS", "DM" };
-
-            if (!validUnits.Contains(unit))
+            if (lat + lng == 0)//we have empty coordinates
             {
-                otherFieldErrors.Add("llunit not valid");
-                carryOn = false;
+                if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit) || !string.IsNullOrEmpty(res))
+                {
+                    return "ns, ew, llrs and llunit should be empty if no coords captured";
+                }
+                else
+                {
+                    return ""; //everthing fine: zero coordinates and ns, ew, llunit and llres are empty
+                }
             }
 
-            string[] validNS = { "N", "S" };
-            string[] validEW = { "E", "W" };
-
-            //we can carry on despite invalid ns and we values so no need to change carryOn here
-            if (!validNS.Contains(ns))
+            //silent else
+            if(latValid && lngValid)
             {
-                otherFieldErrors.Add("ns not valid");
-            }
 
-            if (!validEW.Contains(ew))
-            {
-                otherFieldErrors.Add("ew not valid");
-            }
+                //check the other fields while we're here
+                //unit must be one of DD, DM or DMS
+                string[] validUnits = { "DD", "DMS", "DM" };
 
-            //now we can check the actual coordinates
-            if (carryOn)
-            {
-                //this will work now
-                lat = double.Parse(latStr);
-                lng = double.Parse(lngStr);
+                if (!validUnits.Contains(unit))
+                {
+                    otherFieldErrors.Add("llunit not valid");
+                }
+
+                string[] validNS = { "N", "S" };
+                string[] validEW = { "E", "W" };
+
+                //we can carry on despite invalid ns and we values so no need to change carryOn here
+                //we want this to be case sensitive
+                if (!validNS.Contains(ns))
+                {
+                    otherFieldErrors.Add("ns not valid");
+                }
+
+                if (!validEW.Contains(ew))
+                {
+                    otherFieldErrors.Add("ew not valid");
+                }
 
 
                 //one can't be zero and the other a number
                 if (lat == 0 || lng == 0)
                 {
-                    if (lat + lng == 0) //if they are both zeros, then not captured, check the other fields are not captured
-                    {
-                        if (!String.IsNullOrEmpty(ns) || !String.IsNullOrEmpty(ew) || !string.IsNullOrEmpty(unit) || !string.IsNullOrEmpty(res))
-                        {
-                            return "ns, ew, llres and llunit should be empty if no coords captured";
-                        }
-                    }
-                    else
-                    {
-                        coordErrors.Add("one of lat or long is missing");
-                        coordErrors.AddRange(otherFieldErrors);
-                        return String.Join("; ", coordErrors.ToArray());
-                    }
+                    coordErrors.Add("one of lat or long is missing");
                 }
 
                 //silent else
 
                 //we can ingore DD here as we just need the degrees part
-                char[] separators = { '.' };
-                string[] latParts = latStr.Split(separators);
-                string[] lngParts = lngStr.Split(separators);
+                string[] latParts = latStr.Split('.');
+                string[] lngParts = lngStr.Split('.');
 
                 int latDeg = int.Parse(latParts[0]);
                 int lngDeg = int.Parse(lngParts[0]);
 
-                if (latDeg > 90 || latDeg < 0 )
+                if (latDeg > 90)
                 {
                     coordErrors.Add("lat not between 0 and 90");
                 }
 
-                if (lngDeg > 180 || lngDeg < 0)
+                if (lngDeg > 180)
                 {
                     coordErrors.Add("long not between 0 and 180");
                 }
 
                 //the M or MS part
-                if (unit == "DM") 
+                if (unit == "DM")
                 {
                     //add the decimal points
                     string latMin = latParts[1].Insert(2, ".");
@@ -848,10 +952,8 @@ namespace RDEManager
                     }
 
                 }
-
             }
-
-
+            
             coordErrors.AddRange(otherFieldErrors);
 
             return String.Join("; ", coordErrors.ToArray());
@@ -882,7 +984,6 @@ namespace RDEManager
                 string lngStr = row["long"].ToString().Trim();
                 string ew = row["ew"].ToString().Trim();
                 string unit = row["llunit"].ToString().Trim();
-                string qds = row["qds"].ToString().Trim();
 
                 if (unit == "DD")
                 {
@@ -996,8 +1097,7 @@ namespace RDEManager
         //TESTED IN coordsMatchQDS(), WORKING
         public static string getQDSFromCoords(string decimalCoords) //note this works for southern Africa only
         {
-            char[] separators = { ',' };
-            string[] coords = decimalCoords.Split(separators);
+            string[] coords = decimalCoords.Split(',');
             string latStr = coords[0];
             string lngStr = coords[1];
             double lat = double.Parse(latStr);
@@ -1006,10 +1106,10 @@ namespace RDEManager
             int latWholePart = (int)Math.Truncate(lat);
             int longWholePart = (int)Math.Truncate(lng);
 
-            string QDS = $"{latWholePart}{longWholePart}";
+            string QDS = $"{Math.Abs(latWholePart)}{Math.Abs(longWholePart)}";
 
-            double latDecPart = lat - latWholePart;
-            double longDecPart = lng - longWholePart;
+            double latDecPart = Math.Abs(lat - latWholePart);
+            double longDecPart = Math.Abs(lng - longWholePart);
 
             //working out these letters. Let's do this in rows and columns...
             if (latDecPart < 0.25)
@@ -1095,7 +1195,7 @@ namespace RDEManager
 
         //check if agents names are valid and return those that are not
         //TESTED and working
-        public static string getAgentNamesNotInList(string agentsString, DataTable masterAgents)
+        public static string getAgentNamesNotInList(string agentsString, DataTable masterAgents, List<string> peopleChecked)
         {
 
             if(agentsString == "") //sometimes we get this
@@ -1105,7 +1205,7 @@ namespace RDEManager
 
             var masterAgentsEnum = masterAgents.AsEnumerable();
 
-            //split the agents and remove periods from initials
+            //split the agents 
             char[] agentSeparator = { ';' };
             List<string> agentsStringList = agentsString.Split(agentSeparator).Select(a => a.Trim()).ToList();
 
@@ -1113,6 +1213,12 @@ namespace RDEManager
             //create a list of agents
             foreach(string agent in agentsStringList)
             {
+
+                //check if it hasn't been approved already
+                if (peopleChecked.Contains(agent))
+                {
+                    continue;
+                }
 
                 int matchingAgentCount = 0;
                 string initials = "";
@@ -1166,12 +1272,14 @@ namespace RDEManager
 
         }
 
+
+        //general functions for checking dates
         public static bool yearIsValid(string yearStr)
         {
 
             yearStr = yearStr.Trim();
 
-            if(String.IsNullOrEmpty(yearStr))
+            if (String.IsNullOrEmpty(yearStr))
             {
                 return false;
             }
@@ -1180,7 +1288,7 @@ namespace RDEManager
                 try
                 {
                     int year = int.Parse(yearStr);
-                    if (year > 1850 && year <= DateTime.Now.Year)
+                    if (year == 0 || (year > 1850 && year <= DateTime.Now.Year))
                     {
                         return true;
                     }
@@ -1197,72 +1305,114 @@ namespace RDEManager
             
         }
 
-        public static bool monthIsValid(string monStr, string dayStr)
+        public static bool monthIsValid(string yearStr, string monStr)
         {
-            if (!String.IsNullOrEmpty(monStr) && monStr != "0")
+            //invalid if no year and not zero
+            //month can be 0 - 12
+            //remember a valid year can be zero or 1890 - present
+
+            if (yearIsValid(yearStr) && yearStr != "0") //this is really valid, so we can have a month
             {
-                try
+                int mon = int.Parse(monStr);
+                if (mon > 0 && mon <= 12)
                 {
-                    int mon = int.Parse(monStr);
-                    if (mon > 0 && mon <= 12)
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
+                    return true;
                 }
-                catch
+                else
                 {
                     return false;
                 }
             }
-            else //we need to check if we have a day an no month, in which case month is not valid
-            {
-                if (!String.IsNullOrEmpty(dayStr) && dayStr != "0")
-                {
-                    try
-                    {
-                        int.Parse(dayStr);
-                        return false;
-                    }
-                    catch
-                    {
-                        return true;
-                    }
-                }
-                else
-                {
-                    return true;
-                }
-            }
-        }
-
-        public static bool dayIsValid(int year, int mon, int day)
-        {
-            return day > 0 && day <= DateTime.DaysInMonth(year, mon);
-        }
-
-        public static bool dayIsValid(int mon, int day)
-        {
-            List<int> ThirtyOneDayMonths = new List<int>(new int[] { 1, 3, 5, 7, 8, 10, 12 });
-            int maxDays = 0;
-
-            if (mon == 2)
-            {
-                maxDays = 29;
-            }
-            else if (ThirtyOneDayMonths.Contains(mon))
-            {
-                maxDays = 31;
-            }
             else
             {
-                maxDays = 30;
+                //it can only be zero or empty
+                return (String.IsNullOrEmpty(monStr) || monStr == "0");
             }
 
-            return day > 0 && day <= maxDays;
+        }
+
+        /*
+        public static bool dayIsValid(string year, string mon, string day)
+        {
+            //if there is a day, we must have year and month
+            //if zero it is valid
+
+
+        }
+        */
+
+        //months must have years, days must have months
+        public static bool dateIsValid(string yearStr, string monStr, string dayStr)
+        {
+            //trim them just in case
+            yearStr = yearStr.Trim();
+            monStr = monStr.Trim();
+            dayStr = dayStr.Trim();
+
+            if(String.IsNullOrEmpty(yearStr) || yearStr == "0") //the others must be empty or zero
+            {
+                return ((String.IsNullOrEmpty(monStr) || monStr == "0") && (String.IsNullOrEmpty(dayStr) || dayStr == "0"));
+            }
+            else //we have a year value, let's check it.
+            {
+                try
+                {
+                    int year = int.Parse(yearStr);
+                    if (year > 1850 && year <= DateTime.Now.Year)
+                    {
+                        //we have a valid year, let's check the month
+                        if (String.IsNullOrEmpty(monStr) || monStr == "0") // day must be empty or zero
+                        {
+                            return (String.IsNullOrEmpty(dayStr) || dayStr == "0");
+                        }
+                        else //parse it and check
+                        {
+                            try
+                            {
+                                int mon = int.Parse(monStr);
+                                if(mon > 0 && mon <= 12)
+                                {
+                                    //we have a valid month, let's check the day
+                                    if (String.IsNullOrEmpty(dayStr) || dayStr == "0")
+                                    {
+                                        return true; //year, month, no day
+                                    }
+                                    else //we have a day
+                                    {
+                                        try
+                                        {
+                                            int day = int.Parse(dayStr);
+                                            int daysInMonth = DateTime.DaysInMonth(year, mon);
+                                            return day > 0 && day <= daysInMonth;
+                                        }
+                                        catch
+                                        {
+                                            return false; //not a valid number
+                                        }
+
+                                    }
+                                }
+                                else //it's out of range for months
+                                {
+                                    return false;
+                                }
+                            }
+                            catch //its not a number
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                    else //its out of range
+                    {
+                        return false;
+                    }
+                }
+                catch //its not a number
+                {
+                    return false;
+                }
+            }
         }
 
         //helpers
