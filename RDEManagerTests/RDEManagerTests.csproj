@@ -61,6 +61,7 @@
     <Compile Include="RecordErrorFinderTests.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="CoordinatesCountriesQDSs.csv" />
     <None Include="packages.config" />
   </ItemGroup>

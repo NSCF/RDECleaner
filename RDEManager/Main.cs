@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
+using GenericParsing;
 
 
 namespace RDEManager
@@ -32,6 +33,11 @@ namespace RDEManager
             this.peopleChecked = new List<string>();
 
             this.records = new DataTable();
+            this.schemasAccepted = new List<DataTable>();
+
+            this.existingRecords = new DataTable();
+            this.existingBarcodes = new HashSet<string>();
+            this.existingBarcodeIndices = new List<int>();
 
         }
 
@@ -49,6 +55,7 @@ namespace RDEManager
                 {
                     string fileName = openFileDialog.FileName;
                     string directory = Path.GetDirectoryName(fileName);
+                    this.templateDir = directory;
                     fileName = Path.GetFileName(fileName);
                     string fileExtenstion = Path.GetExtension(fileName);
                     string tableName = fileName.Replace(fileExtenstion, "");
@@ -117,6 +124,16 @@ namespace RDEManager
 
         private void btnChooseDBF_Click(object sender, EventArgs e)
         {
+
+            if (this.filesToImport == null)
+            {
+                this.filesToImport = new List<string>();
+            }
+            else
+            {
+                this.filesToImport.Clear();
+            }
+
             using (OpenFileDialog openFileDialog = new OpenFileDialog())
             {
                 openFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
@@ -128,14 +145,21 @@ namespace RDEManager
 
                     this.workingDir = Path.GetDirectoryName(openFileDialog.FileNames[0]);
 
-                    string[] fileParts = new string[openFileDialog.FileNames.Length]; //start empty
                     for (int i = 0; i < openFileDialog.FileNames.Length; i++)
                     {
-                        fileParts[i] = Path.GetFileName(openFileDialog.FileNames[i]);
+                        this.filesToImport.Add(Path.GetFileName(openFileDialog.FileNames[i]));
                     }
-                    string allParts = string.Join(" | ", fileParts);
 
-                    txtChooseDBF.Text = allParts;
+                    if(this.filesToImport.Count < 5)
+                    {
+                        string allParts = string.Join(" | ", this.filesToImport.ToArray());
+                        txtChooseDBF.Text = allParts;
+                    }
+                    else
+                    {
+                        txtChooseDBF.Text = $"{this.filesToImport.Count} RDE files selected";
+                    }
+
                     btnAddDBFData.Enabled = true;
 
                 }
@@ -148,12 +172,10 @@ namespace RDEManager
             
             this.tablesNotAdded = new List<string>();
 
-            string[] stringSeparators = new string[] { " | " };
-            string[] fileNames = txtChooseDBF.Text.Split(stringSeparators, StringSplitOptions.None);
 
-            for (int i = 0; i < fileNames.Length; i++)
+            for (int i = 0; i < this.filesToImport.Count; i++)
             {
-                addRDERecords(fileNames[i]);
+                addRDERecords(this.filesToImport[i]);
             }
 
             if (this.tablesNotAdded.Count > 0)
@@ -161,6 +183,8 @@ namespace RDEManager
                 string joinedTableNames = String.Join("; ", this.tablesNotAdded.ToArray());
                 MessageBox.Show($"The following tables could not be added due to errors or schema violations: {joinedTableNames}");
             }
+
+            MessageBox.Show("Finished importing records");
 
             btnClearRecords.Enabled = true;
             btnChooseImageFolder.Enabled = true;
@@ -182,6 +206,7 @@ namespace RDEManager
             if (confirmResult == DialogResult.Yes)
             {
                 this.records.Clear();
+                this.txtChooseDBF.Clear();
                 lblNumberOfRecords.Text = "Number of records: ";
                 btnClearRecords.Enabled = false;
                 btnFindCaptureErrors.Enabled = false;
@@ -190,6 +215,69 @@ namespace RDEManager
             {
                 return;
             }
+        }
+
+        private void btnAddExistingBarcodes_Click(object sender, EventArgs e)
+        {
+
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Title = "Choose the existing barcodes file (csv)";
+
+            using (openFileDialog)
+            {
+
+                openFileDialog.Filter = "csv files (*.csv)|*.csv";
+                openFileDialog.FilterIndex = 1;
+
+                if (openFileDialog.ShowDialog() == DialogResult.OK && openFileDialog.FileName != null)
+                {
+
+                    using (GenericParserAdapter parser = new GenericParserAdapter(openFileDialog.FileName))
+                    {
+                        parser.FirstRowHasHeader = true;
+                        this.existingRecords = parser.GetDataTable();
+
+                    }
+
+                    this.cbExistingBarcodeField.Items.Add("--select--");
+                    this.cbExistingBarcodeField.SelectedIndex = 0;
+
+                    foreach (DataColumn col in this.existingRecords.Columns)
+                    {
+                        this.cbExistingBarcodeField.Items.Add(col.ColumnName);
+                    }
+
+                    cbExistingBarcodeField.Enabled = true;
+                }
+            }
+        }
+
+        private void cbExistingBarcodeField_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if(cbExistingBarcodeField.SelectedIndex > 0)
+            {
+                string barcodeField = cbExistingBarcodeField.SelectedItem.ToString();
+                foreach (DataRow row in this.existingRecords.Rows)
+                {
+                    this.existingBarcodes.Add(row[barcodeField].ToString().Trim());
+                }
+
+                foreach (string barcode in this.existingBarcodes)
+                {
+                    for (int i = 0; i < this.records.Rows.Count; i++)
+                    {
+                        if (this.records.Rows[i]["barcode"].ToString().Trim().ToLower() == barcode.Trim().ToLower())
+                        {
+                            this.existingBarcodeIndices.Add(i);
+                        }
+                    }
+                }
+
+                lblExistingBarcodeCount.Text = "Existing barcodes recaptured: " + this.existingBarcodeIndices.Count;
+
+                btnRemoveExistingBarcodes.Enabled = true;
+
+            }            
         }
 
         private void btnChooseImageFolder_Click(object sender, EventArgs e)
@@ -285,7 +373,7 @@ namespace RDEManager
                     {
                         using (TextFieldParser parser = new TextFieldParser(openFileDialog.FileName))
                         {
-                            parser.TextFieldType = FieldType.Delimited;
+                            parser.TextFieldType = Microsoft.VisualBasic.FileIO.FieldType.Delimited;
                             parser.SetDelimiters(",");
 
                             int counter = 0; //so we can skip row 1
@@ -388,6 +476,46 @@ namespace RDEManager
             }
         }
 
+        private void btnRemoveExistingBarcodes_Click(object sender, EventArgs e)
+        {
+
+            this.existingBarcodeIndices.Sort();
+
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
+            saveFileDialog.OverwritePrompt = true;
+            saveFileDialog.ShowDialog();
+
+            if (saveFileDialog.FileName != "")
+            {
+
+                DataTable copyOfExistingRecords = this.records.Clone();
+                copyOfExistingRecords.Columns["dcnotes"].MaxLength = 500;
+
+                for (int i = this.existingBarcodeIndices.Count - 1; i >= 0; i--)
+                {
+                    //trim all those nasty padded Brahms strings so we don't get schema violations
+                    object[] recordData = this.records.Rows[i].ItemArray;
+                    for(int j = 0; j < recordData.Length; j++)
+                    {
+                        if(recordData[j] is System.String)
+                        {
+                            recordData[j] = recordData[j].ToString().Trim();
+                        }
+                    }
+                    
+                    copyOfExistingRecords.Rows.Add(recordData);
+                    this.records.Rows.RemoveAt(i);
+                }
+                this.records.AcceptChanges();
+
+                saveTableAsDBF(saveFileDialog.FileName, copyOfExistingRecords);
+            }
+            else {
+                MessageBox.Show("Existing records must be saved before they can be removed from the captured dataset");
+            }
+        }
+
         private void btnFindMissingRecords_Click(object sender, EventArgs e)
         {
             RecordCleaner.removeBarcodeExclamations(this.records);
@@ -422,9 +550,19 @@ namespace RDEManager
 
                     //get all the image file names
                     List<string> imageFiles = fileNames.Where(fileName => {
-                        string ext = fileName.Substring(fileName.LastIndexOf('.') + 1);
+                        string ext = Path.GetExtension(fileName).ToLower();
                         return ext == "jpg" || ext == "tif";
                     }).ToList();
+
+                    //remove any in the existingRecords list
+                    if(this.existingBarcodes.Count > 0)
+                    {
+                        imageFiles = imageFiles.Where(fileName =>
+                        {
+                            string filePartLower = fileName.Replace(Path.GetExtension(fileName), "").ToLower();
+                            return !existingBarcodes.Any(barcode => barcode.ToLower() == filePartLower);
+                        }).ToList();
+                    }
 
                     List<string>[] errors = RecordErrorFinder.checkAllImagesCaptured(this.records, imageFiles);
 
@@ -986,208 +1124,15 @@ namespace RDEManager
         }
 
         //save the corrected dataset
-        //TODO check this works after any schema changes
         private void btnSaveChanges_Click(object sender, EventArgs e)
         {
-            SaveFileDialog saveFileDialog1 = new SaveFileDialog();
-            saveFileDialog1.Filter = "dbf files (*.dbf)|*.dbf";
-            saveFileDialog1.Title = "Save your changes";
-            saveFileDialog1.OverwritePrompt = true;
-            saveFileDialog1.ShowDialog();
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
+            saveFileDialog.Title = "Save your changes";
+            saveFileDialog.OverwritePrompt = true;
+            saveFileDialog.ShowDialog();
 
-            // If the file name is not an empty string open it for saving.  
-            if (saveFileDialog1.FileName != "")
-            {
-                //copy a file, clear it, and write all the new records to it. 
-                string sourceFile = this.txtChooseDBF.Text.Split('|')[0].Trim();
-
-                try
-                {
-                    // Will not overwrite if the destination file already exists.
-                    File.Copy(Path.Combine(this.workingDir, sourceFile), saveFileDialog1.FileName, true);
-
-                    //we also need to copy the fpt file
-                    string sourceFPT = sourceFile.ToLower().Replace(".dbf", ".fpt");
-                    string destFPT = saveFileDialog1.FileName.ToLower().Replace(".dbf", ".fpt");
-                    File.Copy(Path.Combine(this.workingDir, sourceFPT), destFPT, true);
-                }
-
-                // Catch exception if the file was already copied.
-                catch (IOException copyError)
-                {
-                    MessageBox.Show($"Error with saving file. Copy template failed with message: {copyError.Message}");
-                    return;
-                }
-
-                //connect to the new file
-                string fileNameOnly = Path.GetFileName(saveFileDialog1.FileName);
-                string ext = Path.GetExtension(saveFileDialog1.FileName);
-                string tableName = fileNameOnly.Replace(ext, "");
-
-                string connectionString = @"Provider=VFPOLEDB.1;Data Source=" + saveFileDialog1.FileName;
-                string deleteSQL = $"DELETE FROM {tableName}";
-
-                using (OleDbConnection connection = new OleDbConnection(connectionString))
-                {
-
-                    try
-                    {
-                        connection.Open();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Error with database connection: " + ex.Message);
-                        return;
-                    }
-
-                    //clear all records
-                    OleDbCommand deleteCmd = new OleDbCommand(deleteSQL, connection);
-                    try
-                    {
-                        int deletedRecordCount = deleteCmd.ExecuteNonQuery();
-                        //MessageBox.Show($"Records deleted: {deletedRecordCount}");
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error with saving file. Empty template failed with message: {ex.Message}");
-                        return;
-                    }
-
-                    //add the new records
-                    OleDbCommand addRecordCmd = new OleDbCommand();
-                    addRecordCmd.Connection = connection;
-
-                    List<string> columnNames = new List<string>();
-                    foreach (DataColumn col in this.records.Columns)
-                    {
-                        columnNames.Add(col.ColumnName.Trim());
-                    }
-
-                    string joinedColNames = String.Join(", ", columnNames.ToArray());
-
-                    //we need the list of parameter spaceholders for the sql statement
-                    List<string> placeholders = new List<string>();
-                    for (int i = 0; i < columnNames.Count; i++)
-                    {
-                        placeholders.Add("?");
-                    }
-
-                    string joinedPlaceholders = String.Join(", ", placeholders.ToArray());
-
-                    string addSQL = $"INSERT INTO {tableName} ({joinedColNames}) VALUES ({joinedPlaceholders})";
-
-                    OleDbCommand insertCommand = new OleDbCommand(addSQL, connection);
-                    int counter = 0; // this is just for keeping track during debugging
-                    List<string> rowSaveErrorBarcodes = new List<string>();
-
-                    foreach (DataRow row in this.records.Rows)
-                    {
-                        counter++;
-                        insertCommand.Parameters.Clear(); // clean everything out
-
-                        foreach (string colName in columnNames)
-                        {
-                            //get the type for this column
-                            string coltype = "";
-                            bool isLong;
-                            try
-                            {
-                                DataRow schema = this.templateSchema.Select($"ColumnName = '{colName}'")[0];
-                                coltype = schema["DataType"].ToString();
-                                isLong = (bool)schema["IsLong"];
-
-                            }
-                            catch
-                            {
-                                MessageBox.Show($"Could not find column {colName} in {tableName}. File save aborted.");
-                                return;
-                            }
-
-                            OleDbType OleColType;
-                            if (coltype == "System.String")
-                            {
-                                if (isLong)
-                                {
-                                    OleColType = OleDbType.LongVarChar;
-                                    insertCommand.Parameters.Add(colName, OleColType).Value = row[colName].ToString().Trim();
-                                }
-                                else
-                                {
-                                    OleColType = OleDbType.Char;
-                                    insertCommand.Parameters.Add(colName, OleColType).Value = row[colName].ToString().Trim();
-                                }
-                            }
-                            else if (coltype == "System.Decimal")
-                            {
-                                OleColType = OleDbType.Decimal;
-                                string val = row[colName].ToString().Trim();
-                                if (String.IsNullOrEmpty(val))
-                                {
-                                    insertCommand.Parameters.Add(colName, OleColType).Value = OleDbType.Empty;
-                                }
-                                else
-                                {
-                                    insertCommand.Parameters.Add(colName, OleColType).Value = decimal.Parse(val);
-                                }
-
-                            }
-                            else if (coltype == "System.Boolean")
-                            {
-                                OleColType = OleDbType.Boolean;
-                                string val = row[colName].ToString().Trim();
-                                if (String.IsNullOrEmpty(val))
-                                {
-                                    insertCommand.Parameters.Add(colName, OleColType).Value = OleDbType.Empty;
-                                }
-                                else
-                                {
-                                    insertCommand.Parameters.Add(colName, OleColType).Value = bool.Parse(val);
-                                }
-                            }
-                            else if (coltype == "System.DateTime")
-                            {
-                                OleColType = OleDbType.DBDate;
-                                string val = row[colName].ToString().Trim();
-                                if (String.IsNullOrEmpty(val))
-                                {
-                                    insertCommand.Parameters.Add(colName, OleColType).Value = null;
-                                }
-                                else
-                                {
-                                    insertCommand.Parameters.Add(colName, OleColType).Value = DateTime.Parse(val);
-                                }
-                            }
-                            else
-                            {
-                                throw new Exception("unmatched datatype in dbf file");
-                            }
-
-                        }
-
-                        try
-                        {
-                            insertCommand.ExecuteNonQuery();
-                        }
-                        catch (OleDbException ex)
-                        {
-                            rowSaveErrorBarcodes.Add(row["barcode"].ToString().Trim());
-                        }
-                    }
-
-                    //if we get here, it worked!!
-                    connection.Close();
-
-                    if (rowSaveErrorBarcodes.Count == 0)
-                    {
-                        MessageBox.Show("Records successfully saved");
-                    }
-                    else
-                    {
-                        MessageBox.Show($"The following records were not saved due to errors: {String.Join("; ", rowSaveErrorBarcodes.ToArray())}");
-                    }
-
-                }
-            }
+            saveTableAsDBF(saveFileDialog.FileName, this.records);
         }
 
         //handle delete button presses for datagrid rows
@@ -1218,11 +1163,6 @@ namespace RDEManager
             string fileExtenstion = Path.GetExtension(fileName);
             string tableName = fileName.Replace(fileExtenstion, "");
 
-            if (missingColumnsToIgnore == null)
-            {
-                missingColumnsToIgnore = new List<string>();
-            }
-
             string connectionString = @"Provider=VFPOLEDB.1;Data Source=" + directory + "\\" + fileName;
             string selectSQL = "select * from [" + tableName + "]";
             using (OleDbConnection connection = new OleDbConnection(connectionString))
@@ -1231,92 +1171,177 @@ namespace RDEManager
                 try
                 {
                     connection.Open();
+                }
+                catch(Exception ex)
+                {
+                    MessageBox.Show($"Error opening database connections for {tableName}: {ex.Message}");
+                    this.tablesNotAdded.Add($"{tableName}: database connection could not be opened with message '{ex.Message}'");
+                    return;
+                }
 
-                    //create the reader
-                    OleDbDataReader reader = command.ExecuteReader();
+                //create the reader
+                OleDbDataReader reader = command.ExecuteReader();
 
-                    if (RDESchemaCheck)
+                if (RDESchemaCheck)
+                {
+                    DataTable currentSchema = reader.GetSchemaTable();
+
+                    SchemaDifferences schemaDiffs = getSchemaDifferences(currentSchema, this.templateSchema);
+
+                    if (schemasMatch(schemaDiffs))
                     {
-                        DataTable currentFileSchema = reader.GetSchemaTable();
-                        List<string> currentFileColNames = new List<string>();
-                        List<string> additionalColNames = new List<string>();
-                        List<string> colTypeMismatches = new List<string>();
-
-                        //check current file schema against template schema
-                        foreach (DataRow row in currentFileSchema.Rows)
+                        try
                         {
-                            string colName = row["ColumnName"].ToString();
-                            string colType = row["DataType"].ToString();
-
-                            currentFileColNames.Add(colName);
-
-                            DataRow[] templateRow = this.templateSchema.Select($"ColumnName = '{colName}'");
-
-                            if (templateRow.Length == 0)
+                            target.Load(reader);
+                        }
+                        catch (Exception ex)
+                        {
+                            if(ex.Message.ToLower().Contains("failed to enable constraints"))
                             {
-                                additionalColNames.Add(colName);
-                            }
-                            else
-                            {
-                                string templateColType = templateRow[0]["DataType"].ToString();
-                                if (colType != templateColType)
+                                try
                                 {
-                                    colTypeMismatches.Add(colName);
+                                    DataTable sourceData = new DataTable();
+                                    sourceData.Load(reader);
+                                    addDataRowsManually(sourceData, target, this.templateColNames);
+                                }
+                                catch (Exception innerex)
+                                {
+                                    this.tablesNotAdded.Add($"{tableName}: error adding rows manually with message '{innerex.Message}'");
                                 }
                             }
-                        }
-
-                        //check template schema against current file schema (for missing fields)
-                        List<string> namesToCheck = this.templateColNames.Where(templateColName => !this.missingColumnsToIgnore.Contains(templateColName)).ToList();
-                        List<string> missingColNames = namesToCheck
-                            .Where(nameToCheck => !currentFileColNames.Contains(nameToCheck))
-                            .ToList();
-
-                        if (additionalColNames.Count == 0 && missingColNames.Count == 0 && colTypeMismatches.Count == 0)
-                        {
-
-                            try
-                            {
-                                target.Load(reader);
-                            }
-                            catch (Exception ex)
+                            else
                             {
                                 this.tablesNotAdded.Add($"{tableName} with error: {ex.Message}");
                             }
                         }
-                        else //schemas don't match
+                    }
+                    else //schemas don't match - check type mismatches first
+                    {
+                        DataTable sourceData = new DataTable();
+                        sourceData.Load(reader);
+
+                        //check type mismatches again to confirm if values can be converted
+                        for (int i = schemaDiffs.typeMismatches.Count - 1; i >= 0; i--)
                         {
-                            string missingfromCurrentString = String.Join(", ", missingColNames.Select(x => $"[{x}]"));
-                            string missingFromSchemaString = String.Join(", ", additionalColNames.Select(x => $"[{x}]"));
-                            string typeMismatchesString = String.Join(", ", colTypeMismatches.Select(x => $"[{x}]"));
+                            string colMismatch = schemaDiffs.typeMismatches[i].columnName;
+                            string templateColType = schemaDiffs.typeMismatches[i].templateType;
 
-                            string tableAndCols = $"{tableName}";
-                            if (missingColNames.Count > 0)
+                            foreach (DataRow sourceRow in sourceData.Rows)
                             {
-                                tableAndCols += $" missing: {missingfromCurrentString}";
-                            }
-
-                            if (additionalColNames.Count > 0)
-                            {
-                                if (missingColNames.Count > 0)
+                                try
                                 {
-                                    tableAndCols += " -- ";
+                                    switch (templateColType)
+                                    {
+                                        case "System.Boolean":
+                                            Convert.ToBoolean(sourceRow[colMismatch]);
+                                            break;
+                                        case "System.Byte":
+                                            Convert.ToByte(sourceRow[colMismatch]);
+                                            break;
+                                        case "System.DateTime":
+                                            Convert.ToDateTime(sourceRow[colMismatch]);
+                                            break;
+                                        case "System.Decimal":
+                                            Convert.ToDecimal(sourceRow[colMismatch]);
+                                            break;
+                                        case "System.Double":
+                                            Convert.ToDouble(sourceRow[colMismatch]);
+                                            break;
+                                        case "System.Int16":
+                                            Convert.ToInt16(sourceRow[colMismatch]);
+                                            break;
+                                        case "System.Int32":
+                                            Convert.ToInt32(sourceRow[colMismatch]);
+                                            break;
+                                        case "System.Int64":
+                                            Convert.ToInt64(sourceRow[colMismatch]);
+                                            break;
+                                        case "System.Single":
+                                            Convert.ToSingle(sourceRow[colMismatch]);
+                                            break;
+                                        default: //its a string, and anything can convert to a string
+                                            break;
+                                    }
+
+                                    schemaDiffs.typeMismatches.RemoveAt(i);
                                 }
-                                tableAndCols += $" additional {missingFromSchemaString}";
+                                catch
+                                {
+                                    //nothing needed here
+                                }
                             }
+                        }
 
-                            if (colTypeMismatches.Count > 0)
+                        //there may be no more schema differences, so let's test again
+                        if (schemasMatch(schemaDiffs))
+                        {
+                            try
                             {
-                                tableAndCols += $"{Environment.NewLine}{Environment.NewLine} TYPE MISMATCHES: {typeMismatchesString}";
+                                target.Load(reader); //this should only throw if there is an incompatible type difference which should never be the case because we checked already above
                             }
-
-                            tableAndCols += $"{Environment.NewLine}{Environment.NewLine}";
-
-                            
-                            if(colTypeMismatches.Count == 0)
+                            catch (Exception ex)
                             {
-                                //if column mismatch provide the option to add anyway
-                                if (missingColNames.Count > 0 || additionalColNames.Count > 0)
+                                if (ex.Message.ToLower().Contains("failed to enable constraints"))
+                                {
+                                    try
+                                    {
+                                        addDataRowsManually(sourceData, target, this.templateColNames);
+                                    }
+                                    catch (Exception innerex)
+                                    {
+                                        this.tablesNotAdded.Add($"{tableName}: error adding rows manually with message '{innerex.Message}'");
+                                    }
+                                }
+                                else
+                                {
+                                    this.tablesNotAdded.Add($"{tableName} with error: {ex.Message}");
+                                }
+                            }
+                        }
+                        else //schemas still don't match
+                        {
+                            //have we processed this different schema already
+                            if (isSchemaAlreadyAccepted(currentSchema)) 
+                            {
+
+                                try
+                                {
+                                    addDataRowsManually(sourceData, target, this.templateColNames);
+                                }
+                                catch(Exception ex)
+                                {
+                                    this.tablesNotAdded.Add($"{tableName}: error adding rows manually with message '{ex.Message}'");
+                                }
+                            }
+                            else
+                            {
+                                //ask if we can add the records manually
+                                string missingColumnsString = String.Join(", ", schemaDiffs.missingColumns.Select(x => $"[{x}]"));
+                                string extraColumnsString = String.Join(", ", schemaDiffs.extraColumns.Select(x => $"[{x}]"));
+                                string typeMismatchesString = "";
+                                foreach(SchemaTypeMismatch stm in schemaDiffs.typeMismatches)
+                                {
+                                    string stmString = $"[{stm.columnName}] - currently {stm.mismatchedType.Replace("System", "")} should be {stm.templateType.Replace("System", "")}{Environment.NewLine}";
+                                    typeMismatchesString += stmString;
+                                }
+
+                                string tableAndCols = $"File: {tableName + Environment.NewLine + Environment.NewLine}";
+                                if (schemaDiffs.missingColumns.Count > 0)
+                                {
+                                    tableAndCols += $"Missing: {missingColumnsString + Environment.NewLine + Environment.NewLine}";
+                                }
+
+                                if (schemaDiffs.extraColumns.Count > 0)
+                                {
+                                    tableAndCols += $"Additional {extraColumnsString + Environment.NewLine + Environment.NewLine}";
+                                }
+
+                                if (schemaDiffs.typeMismatches.Count > 0)
+                                {
+                                    tableAndCols += $"TYPE MISMATCHES: {typeMismatchesString + Environment.NewLine + Environment.NewLine}";
+                                }
+
+                                if(schemaDiffs.typeMismatches.Count == 0)
                                 {
                                     string showMessage = $"{tableAndCols}Do you want to add this file anyway?";
                                     DialogResult result = MessageBox.Show(showMessage, $"Confirm schema for {tableName}", MessageBoxButtons.YesNo);
@@ -1325,69 +1350,69 @@ namespace RDEManager
                                     {
                                         try
                                         {
-                                            ConstraintCollection constraints = target.Constraints;
-                                            target.Load(reader); //this supposedly adds additional columns and put null for missing columns
-
-                                            //update the template schema
-                                            DataTableReader dtr = this.records.CreateDataReader();
-                                            this.templateSchema = dtr.GetSchemaTable();
-                                            this.templateColNames.Clear();
-                                            foreach(DataRow row in this.templateSchema.Rows)
-                                            {
-                                                this.templateColNames.Add(row["ColumnName"].ToString());
-                                            }
-                                            
-                                            //remember which missing columns to ignore
-                                            this.missingColumnsToIgnore.AddRange(missingColNames);
-
+                                            addDataRowsManually(sourceData, target, this.templateColNames);
+                                            this.schemasAccepted.Add(currentSchema);
                                         }
                                         catch (Exception ex)
                                         {
-                                            this.tablesNotAdded.Add($"{tableName} with error: {ex.Message}");
+                                            this.tablesNotAdded.Add($"{tableName}: error adding rows manually with message '{ex.Message}'");
                                         }
+                                        
                                     }
                                     else if (result == DialogResult.No)
                                     {
-                                        this.tablesNotAdded.Add(tableAndCols);
+                                        this.tablesNotAdded.Add($"{tableName}: user chose not to add table due to schema differences");
                                     }
                                 }
                                 else
                                 {
-                                    string showMessage = $"{tableAndCols}PLEASE CORRECT DATA TYPE MISMATCHES MANUALLY AND THEN ADD THIS FILE AGAIN?";
+                                    string showMessage = $"{tableAndCols}VALUES IN COLUMNS WITH TYPE MISMATCHES MUST BE FIXED BEFORE THIS FILE CAN BE IMPORTED?";
                                     MessageBox.Show(showMessage);
-                                }
+                                }                                  
                             }
-                            
                         }
                     }
-                    else
+                }
+                else
+                {
+                    try
                     {
-                        try
+                        target.Load(reader);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ex.Message.ToLower().Contains("failed to enable constraints"))
                         {
-                            target.Load(reader);
+                            try
+                            {
+                                DataTable sourceData = new DataTable();
+                                sourceData.Load(reader);
+                                addDataRowsManually(sourceData, target, this.templateColNames);
+                            }
+                            catch (Exception innerex)
+                            {
+                                this.tablesNotAdded.Add($"{tableName}: error adding rows manually with message '{innerex.Message}'");
+                            }
                         }
-                        catch (Exception ex)
+                        else
                         {
                             this.tablesNotAdded.Add($"{tableName} with error: {ex.Message}");
                         }
                     }
-
-                    connection.Close();
-
                 }
-                catch (Exception ex)
+
+                try
                 {
-                    if (connection.State == ConnectionState.Open)
-                    {
-                        connection.Close();
-                    }
-                    this.tablesNotAdded.Add($"{tableName} with database connection error: {ex.Message}");
+                    connection.Close();
                 }
+                catch(Exception ex)
+                {
+                    MessageBox.Show($"Connection could not be closed for {tableName} with error: {ex.Message}");
+                }
+                    
             }
 
         }
-
-        
 
         private void addRDERecords(string fileName)
         {
@@ -1398,25 +1423,198 @@ namespace RDEManager
 
         }
 
-        private List<RDETrackingRecord> getGoogleSheetData()
+        private bool isSchemaAlreadyAccepted(DataTable currentSchema)
         {
-            GoogleSheetReader gsr = new GoogleSheetReader();
-            List<RDETrackingRecord> capturerData = gsr.readGoogleSheet("1nadDvsbuLl3Mj1swecU2Kup-q515kMIwW8YLQqH39P8", "Sheet1", "A", "E");
-            string[] stringSeparators = new string[] { " | " };
-            List<string> originalRDEFiles = txtChooseDBF.Text.Split(stringSeparators, StringSplitOptions.None).ToList();
-            originalRDEFiles = originalRDEFiles.Select(fname => fname.ToLower().Replace(".dbf", "")).ToList();
-
-            //get the ones which match the RDE files
-            capturerData = capturerData.Where(rec => originalRDEFiles.Contains(rec.RDEFileName.Trim())).ToList();
-
-            //check we have them all
-            if (originalRDEFiles.Count > capturerData.Count)
+            if (this.schemasAccepted.Any())
             {
-                List<string> notFound = originalRDEFiles.Where(file => !capturerData.Any(rec => rec.RDEFileName.Trim() == file.Trim())).ToList();
-                MessageBox.Show($"Capturer details not found for {String.Join("; ", notFound.ToArray()).ToUpper()}");
+                DataTable acceptedSchema;
+                for (int i = 0; i < this.schemasAccepted.Count; i++)
+                {
+                    acceptedSchema = this.schemasAccepted[i];
+
+                    if(schemasMatch(getSchemaDifferences(currentSchema, acceptedSchema)))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private bool schemasMatch(SchemaDifferences sds)
+        {
+
+            return (sds.typeMismatches.Count == 0 && sds.extraColumns.Count == 0 && sds.missingColumns.Count == 0);
+        }
+
+        private SchemaDifferences getSchemaDifferences(DataTable currentSchema, DataTable checkSchema)
+        {
+            List<string> currentSchemaColumns = new List<string>();
+            List<SchemaTypeMismatch> colTypeMismatches = new List<SchemaTypeMismatch>();
+
+            foreach (DataRow row in currentSchema.Rows)
+            {
+                string colName = row["ColumnName"].ToString();
+                currentSchemaColumns.Add(colName);
+
+                string colType = row["DataType"].ToString();
+
+                DataRow[] checkShemaRow = checkSchema.Select($"ColumnName = '{colName}'");
+
+                if (checkShemaRow.Length > 0)
+                {
+                    string templateColType = checkShemaRow[0]["DataType"].ToString();
+                    if (colType != templateColType)
+                    {
+                        SchemaTypeMismatch stm = new SchemaTypeMismatch();
+                        stm.columnName = colName;
+                        stm.templateType = templateColType;
+                        stm.mismatchedType = colType;
+
+                        colTypeMismatches.Add(stm);
+                    }
+                }
             }
 
-            return capturerData;
+            //get checkSchema colNames
+            List<string> checkSchemaColNames = new List<string>();
+            foreach(DataRow row in checkSchema.Rows)
+            {
+                checkSchemaColNames.Add(row["ColumnName"].ToString());
+            }
+
+            //get missing columns
+            List<string> missingColumns = checkSchemaColNames.Except(currentSchemaColumns).ToList();
+
+            //get additional columns
+            List<string> extraColumns = currentSchemaColumns.Except(checkSchemaColNames).ToList();
+
+            SchemaDifferences sds = new SchemaDifferences();
+            sds.extraColumns = extraColumns;
+            sds.missingColumns = missingColumns;
+            sds.typeMismatches = colTypeMismatches;
+
+            return sds;
+
+        }
+
+        private void addDataRowsManually(DataTable source, DataTable target, List<string> targetColNames)
+        {
+            //add the rows one by one, keep track and delete again if there is a problem
+            int rowsAdded = 0;
+            DataRow newTargetRow;
+            DataRow sourceRow;
+            for (int i = 0; i < source.Rows.Count; i++)
+            {
+                newTargetRow = target.NewRow();
+                sourceRow = source.Rows[i];
+
+                foreach (string col in targetColNames)
+                {
+                    try
+                    {
+                        var val = sourceRow[col];
+
+                        //this is a hack. del should alway be empty, and it sometimes looks empty but is not
+                        if(col == "del")
+                        {
+                            val = DBNull.Value;
+                        }
+
+                        //we need to trim strings because Brahms adds white space
+                        if (val is string)
+                        {
+                            string stringval = val.ToString();
+                            stringval = stringval.Trim();
+                            val = stringval;
+                        }
+
+                        try
+                        {
+                            newTargetRow[col] = val;
+                        }
+                        catch (Exception ex) //this is a problem, and we need to reverse
+                        {
+                            try
+                            {
+                                int rowsDeleted = 0;
+                                for (int j = target.Rows.Count - 1; rowsDeleted < rowsAdded; j--)
+                                {
+                                    target.Rows[j].Delete();
+                                    rowsDeleted++;
+                                }
+                                target.AcceptChanges();
+                            }
+                            catch (Exception innerEx)
+                            {
+                                int testint = 5;
+                                //I really hope this never happens!
+                            }
+
+                            throw ex;
+                        }
+
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            newTargetRow[col] = DBNull.Value;
+                        }
+                        catch (Exception ex) //this is a problem, and we need to reverse
+                        {
+                            try
+                            {
+                                int rowsDeleted = 0;
+                                for (int j = target.Rows.Count - 1; rowsDeleted < rowsAdded; j--)
+                                {
+                                    target.Rows[j].Delete();
+                                    rowsDeleted++;
+                                }
+                                target.AcceptChanges();
+                            }
+                            catch (Exception inex)
+                            {
+                                int testint = 5;
+                            }
+
+                            throw ex;
+                        }
+                    }
+                }
+
+                try
+                {
+                    target.Rows.Add(newTargetRow);
+                    rowsAdded++;
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        int rowsDeleted = 0;
+                        for (int j = target.Rows.Count - 1; rowsDeleted < rowsAdded; j--)
+                        {
+                            target.Rows[j].Delete();
+                            rowsDeleted++;
+                        }
+                        target.AcceptChanges();
+                    }
+                    catch (Exception inex)
+                    {
+                        int testint = 5;
+                    }
+
+                    throw ex;
+
+                }
+
+            }
         }
 
         private void findBotRecDuplicates()
@@ -1768,6 +1966,208 @@ namespace RDEManager
 
         }
 
+        private void saveTableAsDBF(string saveFilePath, DataTable dataSource)
+        {
+            if (saveFilePath != "")
+            {
+                //use the template
+                string templateFile = this.txtSchemaFile.Text;
+
+                if (String.IsNullOrEmpty(templateFile))
+                {
+                    MessageBox.Show("No template schema file is selected for saving");
+                    return;
+                }
+
+                try
+                {
+                    File.Copy(Path.Combine(this.templateDir, templateFile), saveFilePath, true);
+
+                    //we also need to copy the fpt file
+                    string sourceFPT = templateFile.ToLower().Replace(".dbf", ".fpt");
+                    string destFPT = saveFilePath.ToLower().Replace(".dbf", ".fpt");
+                    File.Copy(Path.Combine(this.templateDir, sourceFPT), destFPT, true);
+                }
+
+                // Catch exception if the file was already copied.
+                catch (IOException copyError)
+                {
+                    MessageBox.Show($"Error with saving file. Copy template failed with message: {copyError.Message}");
+                    return;
+                }
+
+                //connect to the new file
+                string fileNameOnly = Path.GetFileName(saveFilePath);
+                string ext = Path.GetExtension(saveFilePath);
+                string tableName = fileNameOnly.Replace(ext, "");
+
+                string connectionString = @"Provider=VFPOLEDB.1;Data Source=" + saveFilePath;
+                string deleteSQL = $"DELETE FROM [{tableName}]";
+
+                using (OleDbConnection connection = new OleDbConnection(connectionString))
+                {
+
+                    try
+                    {
+                        connection.Open();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error with database connection: " + ex.Message);
+                        return;
+                    }
+
+                    //clear all records
+                    using (OleDbCommand deleteCmd = new OleDbCommand(deleteSQL, connection))
+                    {
+                        try
+                        {
+                            int deletedRecordCount = deleteCmd.ExecuteNonQuery();
+                            //MessageBox.Show($"Records deleted: {deletedRecordCount}");
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Error with saving file. Delete records from template failed with message: {ex.Message}");
+                            return;
+                        }
+                    }
+
+                    //add the new records
+                    List<string> columnNames = new List<string>();
+                    foreach (DataColumn col in dataSource.Columns)
+                    {
+                        columnNames.Add(col.ColumnName.Trim());
+                    }
+
+                    string joinedColNames = String.Join(", ", columnNames.ToArray());
+
+                    //we need the list of parameter placeholders for the sql statement
+                    List<string> placeholders = new List<string>();
+                    for (int i = 0; i < columnNames.Count; i++)
+                    {
+                        placeholders.Add("?");
+                    }
+
+                    string joinedPlaceholders = String.Join(", ", placeholders.ToArray());
+
+                    string addSQL = $"INSERT INTO [{tableName}] ({joinedColNames}) VALUES ({joinedPlaceholders})";
+
+                    List<string> saveErrorBarcodes = new List<string>();
+                    using (OleDbCommand insertCommand = new OleDbCommand(addSQL, connection))
+                    {
+                        int counter = 0; // this is just for keeping track during debugging
+
+
+                        foreach (DataRow row in dataSource.Rows)
+                        {
+                            counter++;
+                            insertCommand.Parameters.Clear(); // clean everything out
+
+                            foreach (string colName in columnNames)
+                            {
+                                //get the type for this column
+                                string coltype = "";
+                                bool isLong;
+                                try
+                                {
+                                    DataRow schema = this.templateSchema.Select($"ColumnName = '{colName}'")[0];
+                                    coltype = schema["DataType"].ToString();
+                                    isLong = (bool)schema["IsLong"];
+
+                                }
+                                catch
+                                {
+                                    MessageBox.Show($"Could not find column {colName} in {tableName}. File save aborted.");
+                                    return;
+                                }
+
+                                OleDbType OleColType;
+                                if (coltype == "System.String")
+                                {
+                                    if (isLong)
+                                    {
+                                        OleColType = OleDbType.LongVarChar;
+                                        insertCommand.Parameters.Add(colName, OleColType).Value = row[colName].ToString().Trim();
+                                    }
+                                    else
+                                    {
+                                        OleColType = OleDbType.Char;
+                                        insertCommand.Parameters.Add(colName, OleColType).Value = row[colName].ToString().Trim();
+                                    }
+                                }
+                                else if (coltype == "System.Decimal")
+                                {
+                                    OleColType = OleDbType.Decimal;
+                                    string val = row[colName].ToString().Trim();
+                                    if (String.IsNullOrEmpty(val))
+                                    {
+                                        insertCommand.Parameters.Add(colName, OleColType).Value = OleDbType.Empty;
+                                    }
+                                    else
+                                    {
+                                        insertCommand.Parameters.Add(colName, OleColType).Value = decimal.Parse(val);
+                                    }
+
+                                }
+                                else if (coltype == "System.Boolean")
+                                {
+                                    OleColType = OleDbType.Boolean;
+                                    string val = row[colName].ToString().Trim();
+                                    if (String.IsNullOrEmpty(val))
+                                    {
+                                        insertCommand.Parameters.Add(colName, OleColType).Value = OleDbType.Empty;
+                                    }
+                                    else
+                                    {
+                                        insertCommand.Parameters.Add(colName, OleColType).Value = bool.Parse(val);
+                                    }
+                                }
+                                else if (coltype == "System.DateTime")
+                                {
+                                    OleColType = OleDbType.DBDate;
+                                    string val = row[colName].ToString().Trim();
+                                    if (String.IsNullOrEmpty(val))
+                                    {
+                                        insertCommand.Parameters.Add(colName, OleColType).Value = null;
+                                    }
+                                    else
+                                    {
+                                        insertCommand.Parameters.Add(colName, OleColType).Value = DateTime.Parse(val);
+                                    }
+                                }
+                                else
+                                {
+                                    throw new Exception("unmatched datatype in dbf file");
+                                }
+
+                            }
+
+                            try
+                            {
+                                insertCommand.ExecuteNonQuery();
+                            }
+                            catch (OleDbException ex)
+                            {
+                                saveErrorBarcodes.Add(row["barcode"].ToString().Trim());
+                            }
+                        }
+                    }
+
+
+                    //if we get here, it worked!!
+
+                    if (saveErrorBarcodes.Count == 0)
+                    {
+                        MessageBox.Show("Records successfully saved");
+                    }
+                    else
+                    {
+                        MessageBox.Show($"The following records were not saved due to errors: {String.Join("; ", saveErrorBarcodes.ToArray())}");
+                    }
+                }
+            }
+        }
+
         // Insert logic for processing found files here.
         public static void ProcessFile(string path)
         {
@@ -1776,7 +2176,9 @@ namespace RDEManager
 
         //PROPERTIES
 
+        private string templateDir { get; set; }
         private string workingDir { get; set; } //The source directory that the RDE files come from
+        private List<string> filesToImport { get; set; }
 
         public string modalMessage { get; set; }
 
@@ -1784,11 +2186,14 @@ namespace RDEManager
         private List<string> templateColNames { get; set; } //the column names from the schema for checking additional files imported
         private List<string> templateColTypes { get; set; }
         private List<string> tablesNotAdded { get; set; } //to keep a list of tables where adding records failed - we are into serious state management here...
-
+        private List<DataTable> schemasAccepted { get; set; } //for recording the schemas the user has accepted while tables are added. 
 
         //data
         private DataTable records { get; set; }
         private DataTable taxa { get; set; }
+        private DataTable existingRecords { get; set; }
+        private HashSet<string> existingBarcodes { get; set; }
+        private List<int> existingBarcodeIndices { get; set; }
         private DataTable people { get; set; }
 
         private List<BotanicalRecordDuplicateTracker> botRecDuplicates { get; set; }
@@ -1832,6 +2237,5 @@ namespace RDEManager
         private List<DataRow> majorareaWithValues { get; set; }
         private List<DataRow> minorareaWithValues { get; set; }
 
-        
     }
 }
