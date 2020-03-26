@@ -82,7 +82,6 @@
     <Compile Include="BotanicalRecordDuplicateTracker.cs" />
     <Compile Include="CountryCodes.cs" />
     <Compile Include="CountryQDS.cs" />
-    <Compile Include="GoogleSheetReader.cs" />
     <Compile Include="InvalidTaxonNameCount.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
@@ -122,9 +121,6 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <None Include="gs_client_secret.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
