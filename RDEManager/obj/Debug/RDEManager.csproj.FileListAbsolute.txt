@@ -8,7 +8,6 @@ C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.cs
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.exe
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.pdb
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.Main.resources
-C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\gs_client_secret.json
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\Google.Apis.Auth.dll
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\Google.Apis.Auth.PlatformServices.dll
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\Google.Apis.Core.dll

@@ -232,12 +232,21 @@ namespace RDEManager
                 if (openFileDialog.ShowDialog() == DialogResult.OK && openFileDialog.FileName != null)
                 {
 
-                    using (GenericParserAdapter parser = new GenericParserAdapter(openFileDialog.FileName))
-                    {
-                        parser.FirstRowHasHeader = true;
-                        this.existingRecords = parser.GetDataTable();
+                    this.cbExistingBarcodeField.Items.Clear();
 
+                    try
+                    {
+                        using (GenericParserAdapter parser = new GenericParserAdapter(openFileDialog.FileName))
+                        {
+                            parser.FirstRowHasHeader = true;
+                            this.existingRecords = parser.GetDataTable();
+
+                        }
                     }
+                    catch(IOException ex)
+                    {
+                        MessageBox.Show("Please make sure the existing barcodes file is closed before adding it here");
+                    }                    
 
                     this.cbExistingBarcodeField.Items.Add("--select--");
                     this.cbExistingBarcodeField.SelectedIndex = 0;
@@ -495,7 +504,8 @@ namespace RDEManager
                 for (int i = this.existingBarcodeIndices.Count - 1; i >= 0; i--)
                 {
                     //trim all those nasty padded Brahms strings so we don't get schema violations
-                    object[] recordData = this.records.Rows[i].ItemArray;
+                    int recordIndex = existingBarcodeIndices[i];
+                    object[] recordData = this.records.Rows[recordIndex].ItemArray;
                     for(int j = 0; j < recordData.Length; j++)
                     {
                         if(recordData[j] is System.String)
@@ -505,7 +515,7 @@ namespace RDEManager
                     }
                     
                     copyOfExistingRecords.Rows.Add(recordData);
-                    this.records.Rows.RemoveAt(i);
+                    this.records.Rows.RemoveAt(recordIndex);
                 }
                 this.records.AcceptChanges();
 
@@ -551,7 +561,7 @@ namespace RDEManager
                     //get all the image file names
                     List<string> imageFiles = fileNames.Where(fileName => {
                         string ext = Path.GetExtension(fileName).ToLower();
-                        return ext == "jpg" || ext == "tif";
+                        return ext == ".jpg" || ext == ".tif";
                     }).ToList();
 
                     //remove any in the existingRecords list
@@ -568,6 +578,10 @@ namespace RDEManager
 
                     List<string> notCaptured = errors[0];
                     List<string> noImages = errors[1];
+
+                    //for simplicity filter out any that might be in existingBarcodes
+                    notCaptured = notCaptured.Where(barcode => !this.existingBarcodes.Contains(barcode)).ToList();
+                    noImages = noImages.Where(barcode => !this.existingBarcodes.Contains(barcode)).ToList();
 
                     if (notCaptured.Count > 0)
                     {
@@ -697,7 +711,7 @@ namespace RDEManager
                     {
                         if (taxaNotFound[key].Count > 0)
                         {
-                            printErr += $"{key}: {String.Join("; ", taxaNotFound[key].ToArray())} {Environment.NewLine}";
+                            printErr += $"{key} ({taxaNotFound[key].Count}): {String.Join("; ", taxaNotFound[key].ToArray())} {Environment.NewLine}";
                         }
                     }
                     rtbReportErrors.Clear();

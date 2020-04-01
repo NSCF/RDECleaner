@@ -27,10 +27,14 @@ namespace RDEManager
             List<string> notCaptured = new List<string>();
             List<string> capturedBarcodes = records.AsEnumerable().Select(x => x["barcode"].ToString().ToUpper().Trim()).ToList();
 
+            capturedBarcodes = capturedBarcodes.Where(barcode => !String.IsNullOrEmpty(barcode)).ToList();
+
             notCaptured = barcodesFromFileNames.Where(bf => !capturedBarcodes.Contains(bf)).ToList();
+            notCaptured = barcodesFromFileNames.Except(capturedBarcodes).ToList();
 
             //get those in the list where we don't have images
-            List<string> noImages = capturedBarcodes.Where(bc => !barcodesFromFileNames.Contains(bc)).ToList();
+            List<string> noImages = capturedBarcodes.Where(bc => barcodesFromFileNames.Contains(bc)).ToList();
+            noImages = capturedBarcodes.Except(barcodesFromFileNames).ToList();
 
             List<string>[] res = { notCaptured, noImages };
 
