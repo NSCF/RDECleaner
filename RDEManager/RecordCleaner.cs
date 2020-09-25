@@ -188,7 +188,7 @@ namespace RDEManager
                 else //there is rdespec
                 {
                     //deserialize it
-                    XMLSpecimenList speclist = rdeSpecToList(rdespec);
+                    XMLSpecimenList speclist = new XMLSpecimenList(rdespec);
 
                     string allDups = "";
 
@@ -277,10 +277,12 @@ namespace RDEManager
                                     spec.oldbarcode = accession; //this is why we have to do all this
 
                                     XMLSpecimenList XMLList = new XMLSpecimenList();
-                                    XMLList.Specimens.Add(spec);
+                                    XMLList.Specimens = new XMLSpecimen[] { spec };
+
                                    
                                     string xml = rdespecListToXML(XMLList);
 
+                                    //TODO check that this does not have the root element
                                     row["rdespec"] = xml;
                                     updateCounter++;
 
@@ -289,7 +291,7 @@ namespace RDEManager
                                 else //we already have RDEspec
                                 {
 
-                                    XMLSpecimenList speclist = rdeSpecToList(rdeSpec);
+                                    XMLSpecimenList speclist = new XMLSpecimenList(rdeSpec);
                                     
                                     foreach(XMLSpecimen spec in speclist.Specimens)
                                     {
@@ -507,34 +509,12 @@ namespace RDEManager
                     serializer.Serialize(writer, XMLList);
                     string xml = sww.ToString(); // Your XML
 
-                    xml = xml.Replace("<SpecimenList>", "").Replace("</SpecimenList>", "").Replace("&amp;", "&");
+                    xml = xml.Replace("<SpecimenList>", "").Replace("</SpecimenList>", "").Replace("&", "&amp;");
 
                     return xml;
 
                 }
             }
-        }
-
-        public static XMLSpecimenList rdeSpecToList(string rdespec)
-        {
-            XmlSerializer serializer = new XmlSerializer(typeof(XMLSpecimenList));
-
-            //we need to add the list wrapper
-            rdespec = $"<SpecimenList>{rdespec}</SpecimenList>".Replace("&", "&amp;"); //we need the replace because ampersands mean something in XML!!
-
-            try
-            {
-                using (TextReader reader = new StringReader(rdespec))
-                {
-                    return (XMLSpecimenList)serializer.Deserialize(reader);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error with speclist XML");
-                throw ex;
-            }
-
         }
 
         private static string getCollCodeFromBarcode(string barcode)

@@ -1,2 +1,5 @@
 packages
 RDEManager/bin
+RDEManager/obj
+RDEManager/publish
+.vs*

@@ -90,6 +90,8 @@
             this.lblExistingBarcodeCount = new System.Windows.Forms.Label();
             this.btnRemoveExistingBarcodes = new System.Windows.Forms.Button();
             this.lblNumberImages = new System.Windows.Forms.Label();
+            this.lblNumExistingBarcodes = new System.Windows.Forms.Label();
+            this.btnCheckAgents = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.dgvRecordsView)).BeginInit();
             this.gbCollNumberOptions.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
@@ -527,7 +529,7 @@
             // btnFindCaptureErrors
             // 
             this.btnFindCaptureErrors.Enabled = false;
-            this.btnFindCaptureErrors.Location = new System.Drawing.Point(207, 478);
+            this.btnFindCaptureErrors.Location = new System.Drawing.Point(208, 504);
             this.btnFindCaptureErrors.Name = "btnFindCaptureErrors";
             this.btnFindCaptureErrors.Size = new System.Drawing.Size(149, 29);
             this.btnFindCaptureErrors.TabIndex = 58;
@@ -693,11 +695,34 @@
             this.lblNumberImages.TabIndex = 74;
             this.lblNumberImages.Text = "Number of records:";
             // 
+            // lblNumExistingBarcodes
+            // 
+            this.lblNumExistingBarcodes.AutoSize = true;
+            this.lblNumExistingBarcodes.Location = new System.Drawing.Point(610, 159);
+            this.lblNumExistingBarcodes.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+            this.lblNumExistingBarcodes.Name = "lblNumExistingBarcodes";
+            this.lblNumExistingBarcodes.Size = new System.Drawing.Size(0, 13);
+            this.lblNumExistingBarcodes.TabIndex = 75;
+            // 
+            // btnCheckAgents
+            // 
+            this.btnCheckAgents.Enabled = false;
+            this.btnCheckAgents.Location = new System.Drawing.Point(208, 465);
+            this.btnCheckAgents.Name = "btnCheckAgents";
+            this.btnCheckAgents.Size = new System.Drawing.Size(149, 29);
+            this.btnCheckAgents.TabIndex = 76;
+            this.btnCheckAgents.Text = "Check agent names";
+            this.btnCheckAgents.UseVisualStyleBackColor = true;
+            this.btnCheckAgents.Click += new System.EventHandler(this.btnCheckAgents_Click);
+            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1171, 882);
+            this.AutoScroll = true;
+            this.ClientSize = new System.Drawing.Size(1171, 690);
+            this.Controls.Add(this.btnCheckAgents);
+            this.Controls.Add(this.lblNumExistingBarcodes);
             this.Controls.Add(this.lblNumberImages);
             this.Controls.Add(this.btnRemoveExistingBarcodes);
             this.Controls.Add(this.lblExistingBarcodeCount);
@@ -832,6 +857,8 @@
         private System.Windows.Forms.Label lblExistingBarcodeCount;
         private System.Windows.Forms.Button btnRemoveExistingBarcodes;
         private System.Windows.Forms.Label lblNumberImages;
+        private System.Windows.Forms.Label lblNumExistingBarcodes;
+        private System.Windows.Forms.Button btnCheckAgents;
     }
 }
 

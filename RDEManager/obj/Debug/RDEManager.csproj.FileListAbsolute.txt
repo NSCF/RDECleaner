@@ -31,3 +31,8 @@ C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\FileHelpers.x
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.PleaseWait.resources
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\GenericParsing.dll
 C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\GenericParsing.xml
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.FixCollectors.resources
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\RDEManager.exe.manifest
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\bin\Debug\RDEManager.application
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.exe.manifest
+C:\Users\engelbrechti\source\repos\RDEManager\RDEManager\obj\Debug\RDEManager.application

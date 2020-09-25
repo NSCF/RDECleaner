@@ -37,7 +37,7 @@ namespace RDEManager
 
             this.existingRecords = new DataTable();
             this.existingBarcodes = new HashSet<string>();
-            this.existingBarcodeIndices = new List<int>();
+            this.alreadyDigitizedBarcodeIndices = new List<int>();
 
         }
 
@@ -206,6 +206,7 @@ namespace RDEManager
             if (confirmResult == DialogResult.Yes)
             {
                 this.records.Clear();
+                this.filesToImport.Clear();
                 this.txtChooseDBF.Clear();
                 lblNumberOfRecords.Text = "Number of records: ";
                 btnClearRecords.Enabled = false;
@@ -263,16 +264,34 @@ namespace RDEManager
 
         private void cbExistingBarcodeField_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if(cbExistingBarcodeField.SelectedIndex > 0)
+
+            if (cbExistingBarcodeField.SelectedIndex > 0)
             {
+                if (this.existingBarcodes.Count > 0)
+                {
+                    this.existingBarcodes.Clear();
+                }
+
                 string barcodeField = cbExistingBarcodeField.SelectedItem.ToString();
                 foreach (DataRow row in this.existingRecords.Rows)
                 {
                     this.existingBarcodes.Add(row[barcodeField].ToString().Trim());
                 }
 
+                lblNumExistingBarcodes.Text = $"{this.existingBarcodes.Count} existing barcodes";
+
                 foreach (string barcode in this.existingBarcodes)
                 {
+
+                    DataRow[] matchingRows = this.records.Select($"barcode = '{barcode}'");
+                    foreach(DataRow row in matchingRows)
+                    {
+                        int index = this.records.Rows.IndexOf(row);
+                        this.alreadyDigitizedBarcodeIndices.Add(index);
+                    }
+
+                    /*
+                    //deprecated
                     for (int i = 0; i < this.records.Rows.Count; i++)
                     {
                         if (this.records.Rows[i]["barcode"].ToString().Trim().ToLower() == barcode.Trim().ToLower())
@@ -280,9 +299,10 @@ namespace RDEManager
                             this.existingBarcodeIndices.Add(i);
                         }
                     }
+                    */
                 }
 
-                lblExistingBarcodeCount.Text = "Existing barcodes recaptured: " + this.existingBarcodeIndices.Count;
+                lblExistingBarcodeCount.Text = "Existing barcodes recaptured: " + this.alreadyDigitizedBarcodeIndices.Count;
 
                 btnRemoveExistingBarcodes.Enabled = true;
 
@@ -476,6 +496,8 @@ namespace RDEManager
                     txtPeopleTable.Text = peopleFile;
                     this.lblPeople.Text = $"No. of agent records: {this.people.Rows.Count}";
 
+                    this.btnCheckAgents.Enabled = true;
+
                     MessageBox.Show("People table successfully imported");
 
 
@@ -488,8 +510,6 @@ namespace RDEManager
         private void btnRemoveExistingBarcodes_Click(object sender, EventArgs e)
         {
 
-            this.existingBarcodeIndices.Sort();
-
             SaveFileDialog saveFileDialog = new SaveFileDialog();
             saveFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
             saveFileDialog.OverwritePrompt = true;
@@ -501,10 +521,12 @@ namespace RDEManager
                 DataTable copyOfExistingRecords = this.records.Clone();
                 copyOfExistingRecords.Columns["dcnotes"].MaxLength = 500;
 
-                for (int i = this.existingBarcodeIndices.Count - 1; i >= 0; i--)
+                this.alreadyDigitizedBarcodeIndices.Sort();
+
+                for (int i = this.alreadyDigitizedBarcodeIndices.Count - 1; i >= 0; i--)
                 {
                     //trim all those nasty padded Brahms strings so we don't get schema violations
-                    int recordIndex = existingBarcodeIndices[i];
+                    int recordIndex = alreadyDigitizedBarcodeIndices[i];
                     object[] recordData = this.records.Rows[recordIndex].ItemArray;
                     for(int j = 0; j < recordData.Length; j++)
                     {
@@ -580,10 +602,15 @@ namespace RDEManager
                     List<string> noImages = errors[1];
 
                     //for simplicity filter out any that might be in existingBarcodes
-                    notCaptured = notCaptured.Where(barcode => !this.existingBarcodes.Contains(barcode)).ToList();
-                    noImages = noImages.Where(barcode => !this.existingBarcodes.Contains(barcode)).ToList();
+                    if(this.existingBarcodes != null && this.existingBarcodes.Count > 0)
+                    {
+                        notCaptured = notCaptured.Where(barcode => !this.existingBarcodes.Contains(barcode)).ToList();
+                        noImages = noImages.Where(barcode => !this.existingBarcodes.Contains(barcode)).ToList();
+                    }
 
                     if (notCaptured.Count > 0)
+                        if (notCaptured.Count > 0)
+                            if (notCaptured.Count > 0)
                     {
                         notCaptured.Sort();
                         string codesNotCaptured = String.Join("; ", notCaptured.ToArray());
@@ -721,6 +748,26 @@ namespace RDEManager
                 {
                     MessageBox.Show("all taxa are correct");
                 }
+            }
+        }
+
+        private void btnCheckAgents_Click(object sender, EventArgs e)
+        {
+            this.modalMessage = "Please wait while collectors and determiners are checked";
+            Form wait = new PleaseWait(this);
+            wait.Show();
+
+            Dictionary<string, List<string>> nonExistent = RecordErrorFinder.getAllAgentsNotInList(this.records, this.people, this.peopleChecked);
+            if(nonExistent.Keys.Count > 0)
+            {
+                wait.Close();
+                Form fc = new FixCollectors(this.records, nonExistent, this.people);
+                fc.Show();
+            }
+            else
+            {
+                wait.Close();
+                MessageBox.Show("All agent names are in the master list!");
             }
         }
 
@@ -967,7 +1014,7 @@ namespace RDEManager
                     string masterRDEspec = this.dgvRecordsView.SelectedRows[0].Cells["rdespec"].Value.ToString().Trim();
                     if (!String.IsNullOrEmpty(masterRDEspec))
                     {
-                        XMLSpecimenList rdespeclist = RecordCleaner.rdeSpecToList(masterRDEspec);
+                        XMLSpecimenList rdespeclist = new XMLSpecimenList(masterRDEspec);
 
                         //go through each duplicate record, check if it's already in the rdespec, if not, add it
                         foreach (string dupBarcode in dupInfo.dupBarcodes)
@@ -1141,12 +1188,14 @@ namespace RDEManager
         private void btnSaveChanges_Click(object sender, EventArgs e)
         {
             SaveFileDialog saveFileDialog = new SaveFileDialog();
-            saveFileDialog.Filter = "dbf files (*.dbf)|*.dbf";
+            saveFileDialog.Filter = "csv files (*.csv)|*.csv";
             saveFileDialog.Title = "Save your changes";
             saveFileDialog.OverwritePrompt = true;
             saveFileDialog.ShowDialog();
-
-            saveTableAsDBF(saveFileDialog.FileName, this.records);
+            if (!String.IsNullOrEmpty(saveFileDialog.FileName))
+            {
+                saveTableAsCSV(saveFileDialog.FileName, this.records);
+            }
         }
 
         //handle delete button presses for datagrid rows
@@ -1175,10 +1224,10 @@ namespace RDEManager
         private void readDBFTable(string directory, string fileName, DataTable target, bool RDESchemaCheck)
         {
             string fileExtenstion = Path.GetExtension(fileName);
-            string tableName = fileName.Replace(fileExtenstion, "");
-
+            string tableName = fileName;
+        
             string connectionString = @"Provider=VFPOLEDB.1;Data Source=" + directory + "\\" + fileName;
-            string selectSQL = "select * from [" + tableName + "]";
+            string selectSQL = "select * from `" + tableName + "`"; //see https://docs.microsoft.com/en-us/sql/odbc/microsoft/table-name-limitations?view=sql-server-ver15
             using (OleDbConnection connection = new OleDbConnection(connectionString))
             using (OleDbCommand command = new OleDbCommand(selectSQL, connection))
             {
@@ -1194,13 +1243,41 @@ namespace RDEManager
                 }
 
                 //create the reader
-                OleDbDataReader reader = command.ExecuteReader();
+                OleDbDataReader reader = null;
+                try
+                {
+                    reader = command.ExecuteReader();
+                }
+                catch(Exception ex)
+                {
+                    if(ex.Message.StartsWith("Memo file") && ex.Message.EndsWith("is missing or is invalid."))
+                    {
+                        //This is an absolute bugger to deal with!!!
+                        MessageBox.Show($"Error reading {fileName}. The FPT file is missing or corrupted. Please correct and start over.");
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Error reading {fileName}: {ex.Message}");
+                    }
+
+                    return;
+
+                }
 
                 if (RDESchemaCheck)
                 {
                     DataTable currentSchema = reader.GetSchemaTable();
 
-                    SchemaDifferences schemaDiffs = getSchemaDifferences(currentSchema, this.templateSchema);
+                    SchemaDifferences schemaDiffs = null;
+                    try
+                    {
+                        schemaDiffs = getSchemaDifferences(currentSchema, this.templateSchema);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Please select the template file");
+                        return;
+                    }
 
                     if (schemasMatch(schemaDiffs))
                     {
@@ -1446,7 +1523,18 @@ namespace RDEManager
                 {
                     acceptedSchema = this.schemasAccepted[i];
 
-                    if(schemasMatch(getSchemaDifferences(currentSchema, acceptedSchema)))
+                    SchemaDifferences schemadiffs = null;
+
+                    try
+                    {
+                        schemadiffs = getSchemaDifferences(currentSchema, acceptedSchema);
+                    }
+                    catch(Exception ex)
+                    {
+                        throw ex;
+                    }
+
+                    if(schemasMatch(schemadiffs))
                     {
                         return true;
                     }
@@ -1665,15 +1753,31 @@ namespace RDEManager
                 {
                     List<DataRow> dups = this.records.Select($"TRIM(barcode) like '{root}*'").ToList();
 
+                    //we have to filter to make sure dups are actually dups of root
+                    dups = dups.Where(x =>
+                    {
+                        string rest = x["barcode"].ToString().Substring(root.Length);
+                        if(rest.Length > 0)
+                        {
+                            return !char.IsNumber(rest[0]);
+                        }
+                        else
+                        {
+                            return true;
+                        }
+                        
+                    }).ToList();
+
                     if (dups.Count > 1)
                     {
 
                         List<int> dupsToRemove = new List<int>();
+                        List<int> dupsToCheckManually = new List<int>();
 
                         //first if they are identical record the identical records to delete
-                        for (int i = 0; i < dups.Count - 1; i++)
+                        for (int i = 0; i < dups.Count - 2; i++)
                         {
-                            for (int j = i + 1; j < dups.Count; j++)
+                            for (int j = i + 1; j < dups.Count-1; j++)
                             {
                                 bool identical = true;
                                 for (int k = 0; k < dups[i].ItemArray.Length; k++)//iterate the values
@@ -1691,35 +1795,28 @@ namespace RDEManager
                                     {
                                         recordsToDelete.Add(rowToDelete);
                                     }
-                                    dupsToRemove.Add(i);
+                                }
+                                else
+                                {
+                                    dupsToCheckManually.Add(i);
                                 }
                             }
                         }
 
-                        //clean up
-                        if (dupsToRemove.Count > 0)
-                        {
-                            foreach (int index in dupsToRemove)
-                            {
-                                dups.RemoveAt(index);
-                            }
-                        }
-
-                        if (dups.Count > 1)
+                        if (dupsToCheckManually.Count > 0)
                         {
                             //then record those that are not identical for manual processing
                             List<string> dupBarcodes = new List<string>();
 
-                            foreach (DataRow dr in dups)
+                            foreach (int dupIndex in dupsToCheckManually)
                             {
-                                dupBarcodes.Add(dr["barcode"].ToString().Trim());
+                                dupBarcodes.Add(dups[dupIndex]["barcode"].ToString().Trim());
                             }
 
                             this.botRecDuplicates.Add(new BotanicalRecordDuplicateTracker(root, dupBarcodes));
 
                             this.lblDupsCount.Text = "No. Dups: " + this.botRecDuplicates.Count;
                         }
-
                     }
                 }
                 else
@@ -1980,6 +2077,7 @@ namespace RDEManager
 
         }
 
+        //deprecated but keeping here in case
         private void saveTableAsDBF(string saveFilePath, DataTable dataSource)
         {
             if (saveFilePath != "")
@@ -2182,6 +2280,24 @@ namespace RDEManager
             }
         }
 
+        private void saveTableAsCSV(string saveFilePath, DataTable dataSource)
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+            IEnumerable<string> columnNames = dataSource.Columns.Cast<DataColumn>().
+                                              Select(column => column.ColumnName);
+            sb.AppendLine(string.Join(",", columnNames));
+
+            foreach (DataRow row in dataSource.Rows)
+            {
+                IEnumerable<string> fields = row.ItemArray.Select(field =>
+                  string.Concat("\"", field.ToString().Replace("\"", "\"\""), "\""));
+                sb.AppendLine(string.Join(",", fields));
+            }
+
+            File.WriteAllText(saveFilePath, sb.ToString());
+        }
+
         // Insert logic for processing found files here.
         public static void ProcessFile(string path)
         {
@@ -2207,7 +2323,7 @@ namespace RDEManager
         private DataTable taxa { get; set; }
         private DataTable existingRecords { get; set; }
         private HashSet<string> existingBarcodes { get; set; }
-        private List<int> existingBarcodeIndices { get; set; }
+        private List<int> alreadyDigitizedBarcodeIndices { get; set; }
         private DataTable people { get; set; }
 
         private List<BotanicalRecordDuplicateTracker> botRecDuplicates { get; set; }

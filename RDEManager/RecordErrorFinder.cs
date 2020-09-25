@@ -25,7 +25,36 @@ namespace RDEManager
 
             //get the captured barcodes
             List<string> notCaptured = new List<string>();
-            List<string> capturedBarcodes = records.AsEnumerable().Select(x => x["barcode"].ToString().ToUpper().Trim()).ToList();
+            
+            List<string> capturedBarcodes = new List<string>();
+
+            string specBarcode;
+            foreach (DataRow row in records.Rows)
+            {
+                specBarcode = row["barcode"].ToString().Trim();
+                if (!String.IsNullOrEmpty(specBarcode))
+                {
+                    capturedBarcodes.Add(specBarcode);
+                    string rdespec = row["rdespec"].ToString();
+                    if(!String.IsNullOrEmpty(rdespec.Trim())) {
+                        XMLSpecimenList specs = new XMLSpecimenList(rdespec);
+
+                        foreach (XMLSpecimen spec in specs.Specimens)
+                        {
+                            specBarcode = spec.barcode.Trim();
+                            if (!String.IsNullOrEmpty(specBarcode))
+                            {
+                                if (!capturedBarcodes.Contains(specBarcode))
+                                {
+                                    capturedBarcodes.Add(specBarcode);
+                                }
+
+                            }
+                            specBarcode = null;
+                        }
+                    }
+                }
+            }
 
             capturedBarcodes = capturedBarcodes.Where(barcode => !String.IsNullOrEmpty(barcode)).ToList();
 
@@ -99,6 +128,65 @@ namespace RDEManager
             return taxaNotFound;
 
         }
+
+        
+        public static Dictionary<string, List<string>> getAllAgentsNotInList(DataTable records, DataTable masterAgents, List<string> peopleChecked)
+        {
+            //TODO check that the peoplechecked issue won't mess this up -- it may have to go
+            Dictionary<string, List<string>> result = new Dictionary<string, List<string>>();
+
+            foreach(DataRow row in records.Rows)
+            {
+                string collectorsNotInList = getCollectorsNotInList(row, masterAgents, peopleChecked);
+                List<string> separated = collectorsNotInList.Split(';').ToList();
+                string barcode = row["barcode"].ToString().Trim();
+
+                if (separated.Count > 0)
+                {
+                    foreach (string name in separated)
+                    {
+                        if (result.Keys.Contains(name))
+                        {
+                            
+                            if (!String.IsNullOrEmpty(barcode))
+                            {
+                                result[name].Add(barcode);
+                            }
+                            //no else, there is no barcode so we can't track this record later
+                        }
+                        else
+                        {
+                            List<string> newList = new List<string>();
+                            newList.Add(barcode);
+                            result.Add(name, newList);
+                        }
+                    }
+                }
+
+                string determiner = isDeterminerInList(row, masterAgents, peopleChecked);
+                if (!String.IsNullOrEmpty(determiner))
+                {
+                    if (result.Keys.Contains(determiner))
+                    {
+
+                        if (!String.IsNullOrEmpty(barcode))
+                        {
+                            result[determiner].Add(barcode);
+                        }
+                        //no else, there is no barcode so we can't track this record later
+                    }
+                    else
+                    {
+                        List<string> newList = new List<string>();
+                        newList.Add(barcode);
+                        result.Add(determiner, newList);
+                    }
+                }
+            }
+
+            return result;
+        }
+        
 
         //ROW LEVEL CHECKS 
 
